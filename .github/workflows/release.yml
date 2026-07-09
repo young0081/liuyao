@@ -22,6 +22,10 @@ jobs:
           channel: stable
           cache: true
 
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
       - name: Enable Windows desktop
         run: flutter config --enable-windows-desktop
 
@@ -43,26 +47,14 @@ jobs:
       - name: Build Windows release
         run: flutter build windows --release
 
-      - name: Package Windows artifact
-        shell: pwsh
-        run: |
-          $src = 'build/windows/x64/runner/Release'
-          $zip = 'liuyao-windows-x64.zip'
-          Compress-Archive -Path "$src/*" -DestinationPath $zip -Force
-
       - name: Build Windows installer
         shell: pwsh
         run: powershell -ExecutionPolicy Bypass -File .\build_installer.ps1 -SkipAppBuild
 
       - uses: actions/upload-artifact@v4
         with:
-          name: liuyao-windows-x64
-          path: liuyao-windows-x64.zip
-
-      - uses: actions/upload-artifact@v4
-        with:
           name: liuyao-windows-installer
-          path: dist/liuyao-installer-windows-x64-v*.zip
+          path: dist/liuyao-setup-*.exe
 
   build-android:
     name: Build Android
@@ -112,7 +104,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/liuyao-windows-installer/liuyao-installer-windows-x64-v*.zip
-            dist/liuyao-windows-x64/liuyao-windows-x64.zip
+            dist/liuyao-windows-installer/liuyao-setup-*.exe
             dist/liuyao-android/liuyao-v*-android-release.apk
           generate_release_notes: true

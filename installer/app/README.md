@@ -7,7 +7,12 @@ The final single-file installer is built by `build_installer.ps1`:
 1. Build the main Windows release as the install payload.
 2. Build this Flutter installer app.
 3. Stage both under one folder.
-4. Wrap the staged folder with the 7-Zip SFX module.
+4. Embed the staged folder into `liuyao-setup-<version>.exe` through the
+   bootstrapper project.
+
+The bootstrapper has no visible extractor UI. It silently prepares the embedded
+Flutter files in a temp directory, then starts `liuyao_installer.exe`, so the
+first visible window is this Flutter GUI.
 
 The installer reads/writes the app install state under
 `HKCU\Software\XuanjiLiuyao` and uses the matching uninstall registry key to
