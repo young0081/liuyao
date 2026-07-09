@@ -28,6 +28,18 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Test main app
+        run: flutter test
+
+      - name: Test installer app
+        shell: pwsh
+        run: |
+          Push-Location installer/app
+          flutter pub get
+          dart analyze
+          flutter test
+          Pop-Location
+
       - name: Build Windows release
         run: flutter build windows --release
 
@@ -38,13 +50,13 @@ jobs:
           $zip = 'liuyao-windows-x64.zip'
           Compress-Archive -Path "$src/*" -DestinationPath $zip -Force
 
-      - name: Install Inno Setup
+      - name: Install 7-Zip
         shell: pwsh
-        run: choco install innosetup --yes --no-progress
+        run: choco install 7zip.install --yes --no-progress
 
       - name: Build Windows installer
         shell: pwsh
-        run: powershell -ExecutionPolicy Bypass -File .\build_installer.ps1 -SkipBuild
+        run: powershell -ExecutionPolicy Bypass -File .\build_installer.ps1 -SkipAppBuild
 
       - uses: actions/upload-artifact@v4
         with:

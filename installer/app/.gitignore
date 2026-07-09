@@ -32,7 +32,6 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
-/dist/
 
 # Symbolication related
 app.*.symbols
@@ -44,17 +43,3 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
-
-# Flutter ephemeral / generated per-platform artifacts (machine-specific)
-**/Flutter/ephemeral/
-**/flutter/ephemeral/
-/ios/Flutter/App.framework
-/ios/Flutter/Flutter.framework
-/ios/Flutter/Flutter.podspec
-/ios/Flutter/flutter_export_environment.sh
-/ios/ServiceDefinitions.json
-/ios/Runner/GeneratedPluginRegistrant.*
-/ios/Pods/
-/ios/.symlinks/
-**/windows/flutter/generated_plugin_registrant.*
-**/windows/flutter/generated_plugins.cmake
