@@ -84,6 +84,19 @@ powershell -ExecutionPolicy Bypass -File .\build_windows.ps1
 
 产物位于 `build\windows\x64\runner\Release\liuyao.exe`。
 
+### 构建 Windows 正式安装程序
+
+安装程序基于 Inno Setup 6,带 GUI 向导、圆角无边框窗口、应用图标、开始菜单/桌面快捷方式。
+它会检测本机已安装的任意版本,默认路径指向旧安装目录;若安装包版本高于已装版本会显示为更新,
+低于已装版本会显示为回退,相同版本显示为重新安装。
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\build_installer.ps1
+powershell -ExecutionPolicy Bypass -File .\build_installer.ps1 -SkipBuild # 复用现有 Windows Release 产物
+```
+
+产物位于 `dist\liuyao-setup-<version>.exe`。
+
 ### 构建 Android 发行版
 
 同样地,Android(Gradle/AGP)工具链无法处理含非 ASCII 字符的项目路径。
@@ -94,7 +107,8 @@ powershell -ExecutionPolicy Bypass -File .\build_android.ps1          # release 
 powershell -ExecutionPolicy Bypass -File .\build_android.ps1 -Debug   # debug 包
 ```
 
-产物位于 `build\app\outputs\flutter-apk\app-release.apk`。
+脚本会保留 Flutter 默认 APK,并额外输出带版本与构建类型的安装包,例如
+`build\app\outputs\flutter-apk\liuyao-v1.0.1-2-android-release.apk`。
 
 > 说明:当前 release 使用 debug 签名以便直接装机测试;正式分发前请在
 > `android/app/build.gradle.kts` 配置你自己的 keystore 签名。

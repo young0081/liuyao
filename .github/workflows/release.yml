@@ -38,10 +38,23 @@ jobs:
           $zip = 'liuyao-windows-x64.zip'
           Compress-Archive -Path "$src/*" -DestinationPath $zip -Force
 
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --yes --no-progress
+
+      - name: Build Windows installer
+        shell: pwsh
+        run: powershell -ExecutionPolicy Bypass -File .\build_installer.ps1 -SkipBuild
+
       - uses: actions/upload-artifact@v4
         with:
           name: liuyao-windows-x64
           path: liuyao-windows-x64.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: liuyao-windows-installer
+          path: dist/liuyao-setup-*.exe
 
   build-android:
     name: Build Android
@@ -66,12 +79,16 @@ jobs:
         run: flutter build apk --release
 
       - name: Rename APK
-        run: mv build/app/outputs/flutter-apk/app-release.apk liuyao-android.apk
+        run: |
+          version="$(grep '^version:' pubspec.yaml | awk '{print $2}' | tr '+' '-')"
+          apk_name="liuyao-v${version}-android-release.apk"
+          mv build/app/outputs/flutter-apk/app-release.apk "$apk_name"
+          echo "APK_NAME=$apk_name" >> "$GITHUB_ENV"
 
       - uses: actions/upload-artifact@v4
         with:
           name: liuyao-android
-          path: liuyao-android.apk
+          path: ${{ env.APK_NAME }}
 
   release:
     name: Publish Release
@@ -87,6 +104,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
+            dist/liuyao-windows-installer/liuyao-setup-*.exe
             dist/liuyao-windows-x64/liuyao-windows-x64.zip
-            dist/liuyao-android/liuyao-android.apk
+            dist/liuyao-android/liuyao-v*-android-release.apk
           generate_release_notes: true
