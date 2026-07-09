@@ -1,10 +1,8 @@
 # Xuanji Liuyao - Windows installer build script
 #
-# Builds a self-contained single-file installer (.exe) whose GUI is a Flutter
-# app (installer/app), matching the main app's art style. The main app's
-# release files are carried as an uncompressed `payload\` folder, and the whole
-# staging folder is wrapped into one self-extracting exe via the 7-Zip SFX
-# module.
+# Builds a Windows installer package whose entry point is a Flutter GUI app
+# (installer/app), matching the main app's art style. The main app's release
+# files are carried in a `payload\` folder beside the installer executable.
 #
 # Usage:
 #   powershell -ExecutionPolicy Bypass -File .\build_installer.ps1
@@ -31,26 +29,6 @@ function Get-AppVersion {
     if (-not $line) { throw 'Cannot find version in pubspec.yaml' }
     $raw = $line.Matches[0].Groups[1].Value.Trim()
     return ($raw -split '\+')[0]
-}
-
-function Get-SevenZip {
-    $candidates = @(
-        "$env:ProgramFiles\7-Zip\7z.exe",
-        "${env:ProgramFiles(x86)}\7-Zip\7z.exe"
-    )
-    foreach ($c in $candidates) { if (Test-Path $c) { return $c } }
-    $cmd = Get-Command 7z -ErrorAction SilentlyContinue
-    if ($cmd) { return $cmd.Source }
-    throw '7-Zip (7z.exe) was not found. Install 7-Zip first.'
-}
-
-function Get-SfxModule {
-    $candidates = @(
-        "$env:ProgramFiles\7-Zip\7z.sfx",
-        "${env:ProgramFiles(x86)}\7-Zip\7z.sfx"
-    )
-    foreach ($c in $candidates) { if (Test-Path $c) { return $c } }
-    throw '7-Zip SFX module (7z.sfx) was not found next to 7z.exe.'
 }
 
 # Build a Flutter Windows release in an ASCII temp dir (toolchain cannot handle
@@ -133,50 +111,28 @@ if (-not (Test-Path (Join-Path $payloadDst $appExe))) {
     throw "Main app payload was not copied into staging: $payloadDst"
 }
 
-# 4. Wrap into a single self-extracting exe.
-Write-Host '== Building self-extracting exe =='
+# 4. Package the Flutter installer app + payload as a zip. The first executable
+# users run is the Flutter GUI installer, not an extractor shell.
+Write-Host '== Building installer package =='
 New-Item -ItemType Directory -Force -Path (Join-Path $root 'dist') | Out-Null
-$sevenZip = Get-SevenZip
-$sfx = Get-SfxModule
-
-$archive = Join-Path $env:TEMP ("liuyao_pkg_" + [Guid]::NewGuid().ToString('N').Substring(0, 8) + '.7z')
-Push-Location $stage
-try {
-    $items = Get-ChildItem -LiteralPath $stage -Force | ForEach-Object { ".\$($_.Name)" }
-    & $sevenZip a -t7z -mx=9 -r $archive @items | Out-Null
-    if ($LASTEXITCODE -ne 0) { throw "7z archive failed with exit code $LASTEXITCODE" }
-} finally { Pop-Location }
-
-$listing = (& $sevenZip l $archive) -join [Environment]::NewLine
-if (($listing -notmatch 'liuyao_installer\.exe') -or
-    ($listing -notmatch 'payload\\liuyao\.exe')) {
-    throw '7z archive verification failed: installer GUI or payload exe is missing.'
+$outZip = Join-Path $root ("dist\liuyao-installer-windows-x64-v$version.zip")
+if (Test-Path $outZip) {
+    Remove-Item -Force $outZip
 }
+$packageItems = Get-ChildItem -LiteralPath $stage -Force | Select-Object -ExpandProperty FullName
+Compress-Archive -LiteralPath $packageItems -DestinationPath $outZip -Force
 
-# SFX config: extract to a temp dir and run the installer GUI.
-$cfgPath = Join-Path $env:TEMP ("liuyao_sfx_" + [Guid]::NewGuid().ToString('N').Substring(0, 8) + '.txt')
-$cfg = @'
-;!@Install@!UTF-8!
-Title="玄机 · 六爻卦象 安装向导"
-RunProgram="liuyao_installer.exe"
-GUIMode="2"
-;!@InstallEnd@!
-'@
-# Write config as UTF-8 with BOM (required by the SFX module for UTF-8 configs).
-[System.IO.File]::WriteAllText($cfgPath, $cfg, (New-Object System.Text.UTF8Encoding($true)))
-
-$outExe = Join-Path $root ("dist\liuyao-setup-$version.exe")
-$fs = [System.IO.File]::Open($outExe, [System.IO.FileMode]::Create)
-try {
-    foreach ($part in @($sfx, $cfgPath, $archive)) {
-        $bytes = [System.IO.File]::ReadAllBytes($part)
-        $fs.Write($bytes, 0, $bytes.Length)
-    }
-} finally { $fs.Close() }
+$verifyDir = Join-Path $env:TEMP ("liuyao_verify_" + [Guid]::NewGuid().ToString('N').Substring(0, 8))
+Expand-Archive -LiteralPath $outZip -DestinationPath $verifyDir -Force
+if (-not (Test-Path (Join-Path $verifyDir 'liuyao_installer.exe')) -or
+    -not (Test-Path (Join-Path $verifyDir "payload\$appExe"))) {
+    Remove-Item $verifyDir -Recurse -Force -ErrorAction SilentlyContinue
+    throw 'Installer package verification failed: installer GUI or payload exe is missing.'
+}
+Remove-Item $verifyDir -Recurse -Force -ErrorAction SilentlyContinue
 
 # Cleanup temp artifacts.
-Remove-Item $archive, $cfgPath -Force -ErrorAction SilentlyContinue
 Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue
 
-$sizeMb = [math]::Round((Get-Item $outExe).Length / 1MB, 1)
-Write-Host "Installer built: $outExe ($sizeMb MB)"
+$sizeMb = [math]::Round((Get-Item $outZip).Length / 1MB, 1)
+Write-Host "Installer package built: $outZip ($sizeMb MB)"

@@ -50,10 +50,6 @@ jobs:
           $zip = 'liuyao-windows-x64.zip'
           Compress-Archive -Path "$src/*" -DestinationPath $zip -Force
 
-      - name: Install 7-Zip
-        shell: pwsh
-        run: choco install 7zip.install --yes --no-progress
-
       - name: Build Windows installer
         shell: pwsh
         run: powershell -ExecutionPolicy Bypass -File .\build_installer.ps1 -SkipAppBuild
@@ -66,7 +62,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: liuyao-windows-installer
-          path: dist/liuyao-setup-*.exe
+          path: dist/liuyao-installer-windows-x64-v*.zip
 
   build-android:
     name: Build Android
@@ -116,7 +112,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/liuyao-windows-installer/liuyao-setup-*.exe
+            dist/liuyao-windows-installer/liuyao-installer-windows-x64-v*.zip
             dist/liuyao-windows-x64/liuyao-windows-x64.zip
             dist/liuyao-android/liuyao-v*-android-release.apk
           generate_release_notes: true
