@@ -33,41 +33,30 @@ class _XuanTitleBarState extends State<XuanTitleBar> {
         }
       },
       child: Container(
-        height: 46,
+        height: 50,
         decoration: const BoxDecoration(
           color: XuanTheme.inkPanel,
           border: Border(
-            bottom: BorderSide(color: XuanTheme.line, width: 1),
+            bottom: BorderSide(color: XuanTheme.lineSoft, width: 1),
           ),
         ),
         child: Row(
           children: [
-            const SizedBox(width: 16),
-            Container(
-              width: 24,
-              height: 24,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: XuanTheme.gold, width: 1.2),
-              ),
-              child: const Text('☯',
-                  style: TextStyle(color: XuanTheme.gold, fontSize: 15)),
-            ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 14),
+            const _BrandMark(size: 28),
+            const SizedBox(width: 9),
             const Text(
               '玄机 · 六爻卦象',
               style: TextStyle(
                 color: XuanTheme.textMain,
                 fontSize: 14,
-                letterSpacing: 2,
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             const Text(
               '京房纳甲 · 装卦排盘',
-              style: TextStyle(color: XuanTheme.textDim, fontSize: 11.5),
+              style: TextStyle(color: XuanTheme.textDim, fontSize: 11),
             ),
             const Spacer(),
             if (widget.showSettings)
@@ -77,6 +66,10 @@ class _XuanTitleBarState extends State<XuanTitleBar> {
                 iconSize: 17,
                 onTap: () => showAiSettingsDialog(context),
               ),
+            const SizedBox(
+              height: 18,
+              child: VerticalDivider(width: 1, color: XuanTheme.line),
+            ),
             _WinButton(
               tooltip: '最小化',
               icon: Icons.remove,
@@ -97,9 +90,10 @@ class _XuanTitleBarState extends State<XuanTitleBar> {
             _WinButton(
               tooltip: '关闭',
               icon: Icons.close,
-              hoverColor: XuanTheme.cinnabar,
+              hoverColor: Color(0xFF9F4434),
               onTap: () => windowManager.close(),
             ),
+            const SizedBox(width: 4),
           ],
         ),
       ),
@@ -113,46 +107,69 @@ class _XuanTitleBarState extends State<XuanTitleBar> {
       padding: EdgeInsets.only(top: topInset),
       decoration: const BoxDecoration(
         color: XuanTheme.inkPanel,
-        border: Border(
-          bottom: BorderSide(color: XuanTheme.line, width: 1),
-        ),
+        border: Border(bottom: BorderSide(color: XuanTheme.lineSoft, width: 1)),
       ),
       child: SizedBox(
-        height: 52,
+        height: 54,
         child: Row(
           children: [
-            const SizedBox(width: 16),
-            Container(
-              width: 26,
-              height: 26,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: XuanTheme.gold, width: 1.2),
-              ),
-              child: const Text('☯',
-                  style: TextStyle(color: XuanTheme.gold, fontSize: 16)),
-            ),
-            const SizedBox(width: 10),
-            const Text(
-              '玄机 · 六爻卦象',
-              style: TextStyle(
-                color: XuanTheme.textMain,
-                fontSize: 15,
-                letterSpacing: 2,
-                fontWeight: FontWeight.w600,
+            const SizedBox(width: 14),
+            const _BrandMark(size: 30),
+            const SizedBox(width: 9),
+            const Expanded(
+              child: Text(
+                '玄机 · 六爻卦象',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: XuanTheme.textMain,
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
-            const Spacer(),
             if (widget.showSettings)
               IconButton(
                 tooltip: 'AI 供应商配置',
-                icon: const Icon(Icons.settings_outlined,
-                    size: 20, color: XuanTheme.textDim),
+                icon: const Icon(
+                  Icons.settings_outlined,
+                  size: 19,
+                  color: XuanTheme.textMuted,
+                ),
                 onPressed: () => showAiSettingsDialog(context),
               ),
-            const SizedBox(width: 4),
+            const SizedBox(width: 6),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BrandMark extends StatelessWidget {
+  const _BrandMark({required this.size});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      padding: const EdgeInsets.all(1),
+      decoration: BoxDecoration(
+        color: XuanTheme.inkRaised,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: XuanTheme.line),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: Image.asset(
+          'assets/icon/app_icon.png',
+          fit: BoxFit.cover,
+          cacheWidth: 64,
+          cacheHeight: 64,
+          filterQuality: FilterQuality.medium,
         ),
       ),
     );
@@ -180,6 +197,7 @@ class _WinButton extends StatefulWidget {
 
 class _WinButtonState extends State<_WinButton> {
   bool _hover = false;
+  bool _pressed = false;
 
   @override
   Widget build(BuildContext context) {
@@ -190,14 +208,28 @@ class _WinButtonState extends State<_WinButton> {
         message: widget.tooltip,
         child: GestureDetector(
           onTap: widget.onTap,
-          child: Container(
-            width: 46,
-            height: 46,
-            color: _hover ? widget.hoverColor : Colors.transparent,
-            child: Icon(
-              widget.icon,
-              size: widget.iconSize,
-              color: _hover ? XuanTheme.textMain : XuanTheme.textDim,
+          onTapDown: (_) => setState(() => _pressed = true),
+          onTapUp: (_) => setState(() => _pressed = false),
+          onTapCancel: () => setState(() => _pressed = false),
+          child: AnimatedScale(
+            scale: _pressed ? 0.92 : 1,
+            duration: XuanMotion.fast,
+            curve: XuanMotion.ease,
+            child: AnimatedContainer(
+              duration: XuanMotion.fast,
+              curve: XuanMotion.ease,
+              width: 40,
+              height: 36,
+              margin: const EdgeInsets.symmetric(horizontal: 1),
+              decoration: BoxDecoration(
+                color: _hover ? widget.hoverColor : Colors.transparent,
+                borderRadius: BorderRadius.circular(5),
+              ),
+              child: Icon(
+                widget.icon,
+                size: widget.iconSize,
+                color: _hover ? XuanTheme.textMain : XuanTheme.textDim,
+              ),
             ),
           ),
         ),

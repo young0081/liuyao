@@ -15,6 +15,8 @@ class ChartPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return XuanCard(
       title: '排盘',
+      step: '贰',
+      icon: Icons.view_agenda_outlined,
       trailing: reading == null
           ? null
           : Text(
@@ -23,7 +25,9 @@ class ChartPanel extends StatelessWidget {
             ),
       padding: EdgeInsets.zero,
       child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
+        duration: XuanMotion.reveal,
+        switchInCurve: XuanMotion.emphasized,
+        switchOutCurve: Curves.easeInCubic,
         transitionBuilder: (child, anim) =>
             FadeTransition(opacity: anim, child: child),
         child: reading == null
@@ -42,18 +46,66 @@ class _EmptyChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Breathing(
+              minScale: 0.985,
+              minOpacity: 0.48,
+              child: _EmptyHexagramGlyph(),
+            ),
+            const SizedBox(height: 22),
+            const Text(
+              '凝神静气，静候卦成',
+              style: TextStyle(color: XuanTheme.textMuted, fontSize: 13.5),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyHexagramGlyph extends StatelessWidget {
+  const _EmptyHexagramGlyph();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 156,
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Breathing(
-            child: Text('☯',
-                style: TextStyle(
-                    fontSize: 64,
-                    color: XuanTheme.gold.withValues(alpha: 0.4))),
-          ),
-          const SizedBox(height: 16),
-          const Text('凝神静气，摇卦以观其象',
-              style: TextStyle(color: XuanTheme.textDim, fontSize: 14)),
+          for (var i = 0; i < 6; i++)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 5),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: XuanTheme.gold.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  if (i.isOdd) ...[
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Container(
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: XuanTheme.gold.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
         ],
       ),
     );
@@ -68,6 +120,7 @@ class _Chart extends StatelessWidget {
   Widget build(BuildContext context) {
     final gz = reading.ganZhi;
     return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -77,15 +130,17 @@ class _Chart extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: XuanTheme.inkRaised,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: XuanTheme.line),
+              borderRadius: BorderRadius.circular(6),
             ),
             child: Wrap(
               spacing: 18,
               runSpacing: 6,
               children: [
                 _kv('公历', _fmtDate(reading.date)),
-                _kv('干支', '${gz.yearGanZhi}年 ${gz.monthZhiName}月 ${gz.dayGanZhi}日'),
+                _kv(
+                  '干支',
+                  '${gz.yearGanZhi}年 ${gz.monthZhiName}月 ${gz.dayGanZhi}日',
+                ),
                 _kv('旬空', gz.xunKongName),
               ],
             ),
@@ -95,10 +150,7 @@ class _Chart extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: _HexTitle(
-                  h: reading.primary,
-                  label: '本卦',
-                ),
+                child: _HexTitle(h: reading.primary, label: '本卦'),
               ),
               if (reading.changed != null) ...[
                 const SizedBox(width: 12),
@@ -118,17 +170,22 @@ class _Chart extends StatelessWidget {
 
   Widget _kv(String k, String v) {
     return RichText(
-      text: TextSpan(children: [
-        TextSpan(
+      text: TextSpan(
+        children: [
+          TextSpan(
             text: '$k ',
-            style: const TextStyle(color: XuanTheme.textDim, fontSize: 11.5)),
-        TextSpan(
+            style: const TextStyle(color: XuanTheme.textDim, fontSize: 11.5),
+          ),
+          TextSpan(
             text: v,
             style: const TextStyle(
-                color: XuanTheme.textMain,
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600)),
-      ]),
+              color: XuanTheme.textMain,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -148,8 +205,7 @@ class _HexTitle extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: XuanTheme.inkRaised,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: XuanTheme.line),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -162,9 +218,13 @@ class _HexTitle extends StatelessWidget {
                   color: XuanTheme.gold.withValues(alpha: 0.16),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: Text(label,
-                    style: const TextStyle(
-                        color: XuanTheme.goldSoft, fontSize: 10.5)),
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: XuanTheme.goldSoft,
+                    fontSize: 10.5,
+                  ),
+                ),
               ),
               const SizedBox(width: 8),
               Flexible(
@@ -175,7 +235,6 @@ class _HexTitle extends StatelessWidget {
                     color: XuanTheme.textMain,
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    letterSpacing: 1,
                   ),
                 ),
               ),
@@ -199,8 +258,10 @@ class _YaoTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasChanged = reading.changed != null;
-    final rows = Column(
+    final table = Column(
       children: [
+        _YaoTableHeader(hasChanged: hasChanged),
+        const SizedBox(height: 3),
         for (var pos = 5; pos >= 0; pos--)
           StaggeredReveal(
             // 上爻先入场：5->0 对应 index 0->5。
@@ -209,29 +270,68 @@ class _YaoTable extends StatelessWidget {
               primary: reading.primary.yaos[pos],
               changed: hasChanged ? reading.changed!.yaos[pos] : null,
               kong: reading.ganZhi.xunKong.contains(
-                  reading.primary.yaos[pos].zhiIndex),
+                reading.primary.yaos[pos].zhiIndex,
+              ),
             ),
           ),
       ],
     );
     // 各列固定宽度之和较大，窄屏（移动端）会挤爆并裁掉最右的旬空标记；
     // 宽度不足时改为横向滚动，保证所有列可见且不被截断。
-    const minWidth = 396.0;
+    final minWidth = hasChanged ? 430.0 : 334.0;
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth >= minWidth) return rows;
+        if (constraints.maxWidth >= minWidth) return table;
         return SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          child: SizedBox(width: minWidth, child: rows),
+          physics: const BouncingScrollPhysics(),
+          child: SizedBox(width: minWidth, child: table),
         );
       },
     );
   }
 }
 
+class _YaoTableHeader extends StatelessWidget {
+  const _YaoTableHeader({required this.hasChanged});
+
+  final bool hasChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    const style = TextStyle(color: XuanTheme.textDim, fontSize: 10.5);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      child: Row(
+        children: [
+          const SizedBox(width: 30, child: Text('六神', style: style)),
+          const SizedBox(width: 66, child: Text('伏神', style: style)),
+          const SizedBox(width: 84, child: Text('六亲纳甲', style: style)),
+          const Expanded(
+            child: Text('爻象', textAlign: TextAlign.center, style: style),
+          ),
+          const SizedBox(
+            width: 26,
+            child: Text('世应', textAlign: TextAlign.center, style: style),
+          ),
+          if (hasChanged)
+            const SizedBox(
+              width: 96,
+              child: Text('变爻', textAlign: TextAlign.center, style: style),
+            ),
+          const SizedBox(width: 18),
+        ],
+      ),
+    );
+  }
+}
+
 class _YaoRow extends StatelessWidget {
-  const _YaoRow(
-      {required this.primary, required this.changed, required this.kong});
+  const _YaoRow({
+    required this.primary,
+    required this.changed,
+    required this.kong,
+  });
   final Yao primary;
   final Yao? changed;
   final bool kong;
@@ -240,16 +340,24 @@ class _YaoRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final ec = elementColor(primary.element.zh);
     return Container(
-      margin: const EdgeInsets.only(bottom: 6),
+      constraints: const BoxConstraints(minHeight: 54),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: primary.isShi
+        color: primary.moving
+            ? XuanTheme.cinnabar.withValues(alpha: 0.08)
+            : primary.isShi
             ? XuanTheme.gold.withValues(alpha: 0.07)
-            : XuanTheme.inkRaised,
-        borderRadius: BorderRadius.circular(7),
-        border: Border.all(
-          color: primary.moving ? XuanTheme.cinnabar : XuanTheme.line,
-          width: primary.moving ? 1.3 : 1,
+            : Colors.transparent,
+        border: Border(
+          left: BorderSide(
+            color: primary.moving
+                ? XuanTheme.cinnabar
+                : primary.isShi
+                ? XuanTheme.gold
+                : Colors.transparent,
+            width: 3,
+          ),
+          bottom: const BorderSide(color: XuanTheme.lineSoft),
         ),
       ),
       child: Row(
@@ -270,7 +378,9 @@ class _YaoRow extends StatelessWidget {
                 : Text(
                     '伏 ${primary.hidden!.liuQin.zh}${_zhiOnly(primary.hidden!.ganZhi)}',
                     style: const TextStyle(
-                        color: XuanTheme.textDim, fontSize: 10.5),
+                      color: XuanTheme.textDim,
+                      fontSize: 10.5,
+                    ),
                   ),
           ),
           // 六亲 + 纳甲。
@@ -279,18 +389,25 @@ class _YaoRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(primary.liuQin.zh,
-                    style: const TextStyle(
-                        color: XuanTheme.textMain,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600)),
-                Text('${primary.ganZhi}${primary.element.zh}',
-                    style: TextStyle(color: ec, fontSize: 11)),
+                Text(
+                  primary.liuQin.zh,
+                  style: const TextStyle(
+                    color: XuanTheme.textMain,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  '${primary.ganZhi}${primary.element.zh}',
+                  style: TextStyle(color: ec, fontSize: 11),
+                ),
               ],
             ),
           ),
           // 爻象。
-          Expanded(child: _YaoGlyph(yang: primary.yang, moving: primary.moving)),
+          Expanded(
+            child: _YaoGlyph(yang: primary.yang, moving: primary.moving),
+          ),
           // 世应标记。
           SizedBox(
             width: 26,
@@ -311,16 +428,20 @@ class _YaoRow extends StatelessWidget {
               child: primary.moving
                   ? Row(
                       children: [
-                        const Icon(Icons.arrow_right_alt,
-                            size: 15, color: XuanTheme.cinnabar),
+                        const Icon(
+                          Icons.arrow_right_alt,
+                          size: 15,
+                          color: XuanTheme.cinnabar,
+                        ),
                         const SizedBox(width: 2),
                         Flexible(
                           child: Text(
                             '${changed!.liuQin.zh}${changed!.ganZhi}',
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                                color: elementColor(changed!.element.zh),
-                                fontSize: 11.5),
+                              color: elementColor(changed!.element.zh),
+                              fontSize: 11.5,
+                            ),
                           ),
                         ),
                       ],
@@ -328,7 +449,9 @@ class _YaoRow extends StatelessWidget {
                   : Text(
                       '${changed!.liuQin.zh}${changed!.ganZhi}',
                       style: const TextStyle(
-                          color: XuanTheme.textDim, fontSize: 11),
+                        color: XuanTheme.textDim,
+                        fontSize: 11,
+                      ),
                     ),
             ),
           if (kong)
@@ -339,8 +462,10 @@ class _YaoRow extends StatelessWidget {
                 border: Border.all(color: XuanTheme.textDim),
                 borderRadius: BorderRadius.circular(3),
               ),
-              child: const Text('空',
-                  style: TextStyle(color: XuanTheme.textDim, fontSize: 9.5)),
+              child: const Text(
+                '空',
+                style: TextStyle(color: XuanTheme.textDim, fontSize: 9.5),
+              ),
             ),
         ],
       ),
@@ -362,13 +487,35 @@ class _YaoGlyph extends StatelessWidget {
     const barColor = XuanTheme.textMain;
     Widget bar;
     if (yang) {
-      bar = Container(height: 9, color: barColor);
+      bar = Container(
+        height: 8,
+        decoration: BoxDecoration(
+          color: barColor,
+          borderRadius: BorderRadius.circular(2),
+        ),
+      );
     } else {
       bar = Row(
         children: [
-          Expanded(child: Container(height: 9, color: barColor)),
+          Expanded(
+            child: Container(
+              height: 8,
+              decoration: BoxDecoration(
+                color: barColor,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
           const SizedBox(width: 14),
-          Expanded(child: Container(height: 9, color: barColor)),
+          Expanded(
+            child: Container(
+              height: 8,
+              decoration: BoxDecoration(
+                color: barColor,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
         ],
       );
     }
@@ -385,9 +532,10 @@ class _YaoGlyph extends StatelessWidget {
                     yang ? '○' : '×',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                        color: XuanTheme.cinnabar,
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold),
+                      color: XuanTheme.cinnabar,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
                   )
                 : const SizedBox.shrink(),
           ),

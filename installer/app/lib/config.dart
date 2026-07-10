@@ -10,7 +10,7 @@ class InstallerConfig {
   );
   static const appVersion = String.fromEnvironment(
     'APP_VERSION',
-    defaultValue: '1.0.4',
+    defaultValue: '1.1.0',
   );
   static const publisher = String.fromEnvironment(
     'APP_PUBLISHER',

@@ -20,8 +20,17 @@ class _TaijiLoaderState extends State<TaijiLoader>
     with SingleTickerProviderStateMixin {
   late final AnimationController _c = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 2600),
+    duration: const Duration(milliseconds: 5200),
   )..repeat();
+  // 同一周期内外圈转两周、太极反转一周，首尾均落在完整圈数上。
+  late final Animation<double> _arcTurns = Tween<double>(
+    begin: 0,
+    end: 2,
+  ).animate(_c);
+  late final Animation<double> _taijiTurns = Tween<double>(
+    begin: 0,
+    end: -1,
+  ).animate(_c);
 
   @override
   void dispose() {
@@ -38,13 +47,18 @@ class _TaijiLoaderState extends State<TaijiLoader>
           width: widget.size,
           height: widget.size,
           child: RepaintBoundary(
-            child: AnimatedBuilder(
-              animation: _c,
-              builder: (_, _) {
-                return CustomPaint(
-                  painter: _TaijiPainter(_c.value),
-                );
-              },
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                RotationTransition(
+                  turns: _arcTurns,
+                  child: CustomPaint(painter: const _ArcPainter()),
+                ),
+                RotationTransition(
+                  turns: _taijiTurns,
+                  child: CustomPaint(painter: const _TaijiPainter()),
+                ),
+              ],
             ),
           ),
         ),
@@ -64,37 +78,53 @@ class _PulsingLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: animation,
-      builder: (_, _) {
-        final t = (math.sin(animation.value * 2 * math.pi) + 1) / 2;
-        return Opacity(
-          opacity: 0.5 + 0.5 * t,
-          child: Text(
-            text,
-            style: const TextStyle(
-              color: XuanTheme.goldSoft,
-              fontSize: 12.5,
-              letterSpacing: 3,
-            ),
-          ),
-        );
-      },
+    final pulse = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween<double>(
+          begin: 0.55,
+          end: 1.0,
+        ).chain(CurveTween(curve: Curves.easeInOut)),
+        weight: 25,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(
+          begin: 1.0,
+          end: 0.55,
+        ).chain(CurveTween(curve: Curves.easeInOut)),
+        weight: 25,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(
+          begin: 0.55,
+          end: 1.0,
+        ).chain(CurveTween(curve: Curves.easeInOut)),
+        weight: 25,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(
+          begin: 1.0,
+          end: 0.55,
+        ).chain(CurveTween(curve: Curves.easeInOut)),
+        weight: 25,
+      ),
+    ]).animate(animation);
+    return FadeTransition(
+      opacity: pulse,
+      child: Text(
+        text,
+        style: const TextStyle(color: XuanTheme.goldSoft, fontSize: 12.5),
+      ),
     );
   }
 }
 
-class _TaijiPainter extends CustomPainter {
-  _TaijiPainter(this.t);
-  final double t; // 0..1
+class _ArcPainter extends CustomPainter {
+  const _ArcPainter();
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final r = size.width / 2;
-
-    // 外圈流动弧光。
-    final sweepAngle = t * 2 * math.pi;
     final arcPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.4
@@ -102,7 +132,6 @@ class _TaijiPainter extends CustomPainter {
       ..shader = SweepGradient(
         startAngle: 0,
         endAngle: 2 * math.pi,
-        transform: GradientRotation(sweepAngle),
         colors: const [
           Color(0x00C7A24B),
           Color(0x66C7A24B),
@@ -112,11 +141,22 @@ class _TaijiPainter extends CustomPainter {
         stops: const [0.0, 0.55, 0.8, 1.0],
       ).createShader(Rect.fromCircle(center: center, radius: r));
     canvas.drawCircle(center, r - 3, arcPaint);
+  }
 
-    // 中央太极：整体缓慢旋转。
+  @override
+  bool shouldRepaint(covariant _ArcPainter oldDelegate) => false;
+}
+
+class _TaijiPainter extends CustomPainter {
+  const _TaijiPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final r = size.width / 2;
+
     canvas.save();
     canvas.translate(center.dx, center.dy);
-    canvas.rotate(sweepAngle);
     final tr = r * 0.62;
 
     final light = Paint()..color = XuanTheme.goldSoft;
@@ -125,8 +165,11 @@ class _TaijiPainter extends CustomPainter {
     // 底：亮半 + 暗半。
     canvas.drawCircle(Offset.zero, tr, light);
     final darkHalf = Path()
-      ..addArc(Rect.fromCircle(center: Offset.zero, radius: tr),
-          -math.pi / 2, math.pi);
+      ..addArc(
+        Rect.fromCircle(center: Offset.zero, radius: tr),
+        -math.pi / 2,
+        math.pi,
+      );
     canvas.drawPath(darkHalf, dark);
 
     // 上小圆(暗) 下小圆(亮)。
@@ -140,7 +183,7 @@ class _TaijiPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _TaijiPainter old) => old.t != t;
+  bool shouldRepaint(covariant _TaijiPainter oldDelegate) => false;
 }
 
 /// 首帧淡入 + 轻微上移，用于结果/面板内容出现时的过渡。
@@ -217,19 +260,22 @@ class StaggeredReveal extends StatefulWidget {
 
 class _StaggeredRevealState extends State<StaggeredReveal>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(
-    vsync: this,
-    duration: widget.duration,
-  );
-  late final Animation<double> _anim =
-      CurvedAnimation(parent: _c, curve: Curves.easeOutCubic);
+  late final AnimationController _c;
+  late final Animation<double> _anim;
 
   @override
   void initState() {
     super.initState();
-    Future<void>.delayed(widget.baseDelay * widget.index, () {
-      if (mounted) _c.forward();
-    });
+    final delay = widget.baseDelay * widget.index;
+    final total = delay + widget.duration;
+    final start = total.inMicroseconds == 0
+        ? 0.0
+        : delay.inMicroseconds / total.inMicroseconds;
+    _c = AnimationController(vsync: this, duration: total)..forward();
+    _anim = CurvedAnimation(
+      parent: _c,
+      curve: Interval(start, 1, curve: XuanMotion.emphasized),
+    );
   }
 
   @override
@@ -279,8 +325,10 @@ class _BreathingState extends State<Breathing>
     vsync: this,
     duration: widget.duration,
   )..repeat(reverse: true);
-  late final Animation<double> _t =
-      CurvedAnimation(parent: _c, curve: Curves.easeInOut);
+  late final Animation<double> _t = CurvedAnimation(
+    parent: _c,
+    curve: Curves.easeInOut,
+  );
 
   @override
   void dispose() {
@@ -290,17 +338,12 @@ class _BreathingState extends State<Breathing>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _t,
-      builder: (_, child) {
-        final scale = widget.minScale + (1 - widget.minScale) * _t.value;
-        final opacity = widget.minOpacity + (1 - widget.minOpacity) * _t.value;
-        return Opacity(
-          opacity: opacity,
-          child: Transform.scale(scale: scale, child: child),
-        );
-      },
-      child: widget.child,
+    return FadeTransition(
+      opacity: Tween<double>(begin: widget.minOpacity, end: 1).animate(_t),
+      child: ScaleTransition(
+        scale: Tween<double>(begin: widget.minScale, end: 1).animate(_t),
+        child: widget.child,
+      ),
     );
   }
 }
@@ -347,7 +390,8 @@ class _TypewriterState extends State<Typewriter> {
     super.didUpdateWidget(old);
     // 新文本若不是在旧文本基础上续写（切换卦例/重新生成），则回到起点重放。
     final isContinuation =
-        widget.text.length >= old.text.length && widget.text.startsWith(old.text);
+        widget.text.length >= old.text.length &&
+        widget.text.startsWith(old.text);
     if (!isContinuation || _visible > widget.text.length) {
       _visible = 0;
     }
@@ -383,7 +427,10 @@ class _TypewriterState extends State<Typewriter> {
 
   @override
   Widget build(BuildContext context) {
-    final shown = widget.text.substring(0, _visible.clamp(0, widget.text.length));
+    final shown = widget.text.substring(
+      0,
+      _visible.clamp(0, widget.text.length),
+    );
     final caughtUp = _visible >= widget.text.length;
     final showCursor = widget.showCursor && (widget.active || !caughtUp);
     final content = Text.rich(
@@ -394,7 +441,9 @@ class _TypewriterState extends State<Typewriter> {
             ? [
                 WidgetSpan(
                   alignment: PlaceholderAlignment.middle,
-                  child: _BlinkingCursor(color: widget.style.color ?? XuanTheme.gold),
+                  child: _BlinkingCursor(
+                    color: widget.style.color ?? XuanTheme.gold,
+                  ),
                 ),
               ]
             : null,

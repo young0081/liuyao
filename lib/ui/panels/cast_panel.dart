@@ -5,8 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../state/app_state.dart';
+import '../../state/location_state.dart';
 import '../home_page.dart';
 import '../theme.dart';
+import '../widgets/taiji_loader.dart';
 
 class CastPanel extends ConsumerStatefulWidget {
   const CastPanel({super.key, required this.state});
@@ -18,8 +20,9 @@ class CastPanel extends ConsumerStatefulWidget {
 }
 
 class _CastPanelState extends ConsumerState<CastPanel> {
-  late final TextEditingController _questionCtrl =
-      TextEditingController(text: widget.state.question);
+  late final TextEditingController _questionCtrl = TextEditingController(
+    text: widget.state.question,
+  );
 
   @override
   void didUpdateWidget(covariant CastPanel oldWidget) {
@@ -28,8 +31,9 @@ class _CastPanelState extends ConsumerState<CastPanel> {
     if (widget.state.question != _questionCtrl.text) {
       _questionCtrl.value = TextEditingValue(
         text: widget.state.question,
-        selection:
-            TextSelection.collapsed(offset: widget.state.question.length),
+        selection: TextSelection.collapsed(
+          offset: widget.state.question.length,
+        ),
       );
     }
   }
@@ -44,10 +48,14 @@ class _CastPanelState extends ConsumerState<CastPanel> {
   Widget build(BuildContext context) {
     final state = widget.state;
     final ctrl = ref.read(divinationProvider.notifier);
+    final location = ref.watch(locationProvider);
     return XuanCard(
       title: '起卦',
+      step: '壹',
+      icon: Icons.toll_outlined,
       padding: EdgeInsets.zero,
       child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -62,12 +70,27 @@ class _CastPanelState extends ConsumerState<CastPanel> {
               decoration: _fieldDecoration('心诚则灵，默念所占之事…'),
             ),
             const SizedBox(height: 16),
+            const _Label('环境参照'),
+            const SizedBox(height: 6),
+            _LocationContextControl(
+              state: location,
+              onToggle: _toggleLocation,
+              onRefresh: () => ref
+                  .read(locationProvider.notifier)
+                  .refresh(requestPermission: true),
+              onOpenSettings: () {
+                final controller = ref.read(locationProvider.notifier);
+                if (location.needsLocationSettings) {
+                  controller.openLocationSettings();
+                } else {
+                  controller.openAppSettings();
+                }
+              },
+            ),
+            const SizedBox(height: 16),
             const _Label('起卦方式'),
             const SizedBox(height: 6),
-            _MethodToggle(
-              method: state.method,
-              onChanged: ctrl.setMethod,
-            ),
+            _MethodToggle(method: state.method, onChanged: ctrl.setMethod),
             const SizedBox(height: 16),
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 260),
@@ -75,16 +98,19 @@ class _CastPanelState extends ConsumerState<CastPanel> {
               switchOutCurve: Curves.easeInCubic,
               transitionBuilder: (child, anim) => FadeTransition(
                 opacity: anim,
-                child: SizeTransition(
-                  sizeFactor: anim,
-                  child: child,
-                ),
+                child: SizeTransition(sizeFactor: anim, child: child),
               ),
               child: state.method == CastMethod.coins
                   ? _CoinCaster(
-                      key: const ValueKey('coins'), state: state, ctrl: ctrl)
+                      key: const ValueKey('coins'),
+                      state: state,
+                      ctrl: ctrl,
+                    )
                   : _ManualCaster(
-                      key: const ValueKey('manual'), state: state, ctrl: ctrl),
+                      key: const ValueKey('manual'),
+                      state: state,
+                      ctrl: ctrl,
+                    ),
             ),
             const SizedBox(height: 20),
             const Divider(color: XuanTheme.line, height: 1),
@@ -94,15 +120,197 @@ class _CastPanelState extends ConsumerState<CastPanel> {
                 const _Label('近期卦例'),
                 const Spacer(),
                 if (state.history.isNotEmpty)
-                  Text('${state.history.length} 条',
-                      style: const TextStyle(
-                          color: XuanTheme.textDim, fontSize: 11)),
+                  Text(
+                    '${state.history.length} 条',
+                    style: const TextStyle(
+                      color: XuanTheme.textDim,
+                      fontSize: 11,
+                    ),
+                  ),
               ],
             ),
             const SizedBox(height: 8),
             _History(state: state, ctrl: ctrl),
           ],
         ),
+      ),
+    );
+  }
+
+  Future<void> _toggleLocation(bool enabled) async {
+    final controller = ref.read(locationProvider.notifier);
+    if (!enabled) {
+      await controller.disable();
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierColor: Colors.black54,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: XuanTheme.inkPanel,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: const BorderSide(color: XuanTheme.line),
+        ),
+        title: const Row(
+          children: [
+            Icon(Icons.location_on_outlined, color: XuanTheme.gold, size: 19),
+            SizedBox(width: 9),
+            Text(
+              '启用位置参照',
+              style: TextStyle(color: XuanTheme.textMain, fontSize: 16),
+            ),
+          ],
+        ),
+        content: const Text(
+          '应用将在起卦时读取前台位置，并用坐标获取行政区、天气和公开的近期本地资讯。'
+          '位置快照会随卦例保存在本机；所问内容不会发送给地图、天气或资讯服务。',
+          style: TextStyle(
+            color: XuanTheme.textMuted,
+            fontSize: 12.5,
+            height: 1.7,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text(
+              '暂不启用',
+              style: TextStyle(color: XuanTheme.textDim),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text(
+              '继续授权',
+              style: TextStyle(color: XuanTheme.goldSoft),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      await controller.enableAndRefresh();
+    }
+  }
+}
+
+class _LocationContextControl extends StatelessWidget {
+  const _LocationContextControl({
+    required this.state,
+    required this.onToggle,
+    required this.onRefresh,
+    required this.onOpenSettings,
+  });
+
+  final LocationState state;
+  final ValueChanged<bool> onToggle;
+  final VoidCallback onRefresh;
+  final VoidCallback onOpenSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    final location = state.context;
+    final status = switch (state.phase) {
+      LocationPhase.disabled => '不使用位置与本地资讯',
+      LocationPhase.idle => '等待获取当前位置',
+      LocationPhase.requesting => '等待系统位置授权',
+      LocationPhase.locating => '正在获取当前位置',
+      LocationPhase.enriching => '正在检索当地资料与近期事件',
+      LocationPhase.ready =>
+        '${location?.placeLabel ?? '位置已取得'} · '
+            '${location?.recentEvents.length ?? 0} 条近期资讯',
+      LocationPhase.partial => '${location?.placeLabel ?? '位置已取得'} · 部分联网资料未取得',
+      LocationPhase.error => state.error ?? '位置资料获取失败',
+    };
+    final statusColor = state.phase == LocationPhase.error
+        ? XuanTheme.cinnabar
+        : state.phase == LocationPhase.ready
+        ? XuanTheme.goldSoft
+        : XuanTheme.textDim;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+      decoration: BoxDecoration(
+        color: XuanTheme.inkRaised,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: state.enabled
+              ? XuanTheme.gold.withValues(alpha: 0.42)
+              : XuanTheme.lineSoft,
+        ),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 30,
+            height: 30,
+            child: state.busy
+                ? const Center(child: TaijiLoader(size: 24))
+                : Icon(
+                    location == null
+                        ? Icons.location_searching_outlined
+                        : Icons.my_location,
+                    size: 18,
+                    color: state.enabled ? XuanTheme.gold : XuanTheme.textDim,
+                  ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '位置与时事参照',
+                  style: TextStyle(
+                    color: XuanTheme.textMain,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  status,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 10.5,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (state.enabled && !state.busy)
+            Tooltip(
+              message: state.needsAppSettings || state.needsLocationSettings
+                  ? '打开系统设置'
+                  : '刷新位置资料',
+              child: IconButton(
+                onPressed: state.needsAppSettings || state.needsLocationSettings
+                    ? onOpenSettings
+                    : onRefresh,
+                icon: Icon(
+                  state.needsAppSettings || state.needsLocationSettings
+                      ? Icons.settings_outlined
+                      : Icons.refresh,
+                  size: 17,
+                ),
+                color: XuanTheme.textMuted,
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+          Switch(
+            value: state.enabled,
+            onChanged: state.loaded && !state.busy ? onToggle : null,
+            activeThumbColor: XuanTheme.ink,
+            activeTrackColor: XuanTheme.gold,
+            inactiveThumbColor: XuanTheme.textDim,
+            inactiveTrackColor: XuanTheme.line,
+            trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
+          ),
+        ],
       ),
     );
   }
@@ -122,13 +330,15 @@ class _CoinCaster extends StatelessWidget {
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: XuanTheme.inkRaised,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: XuanTheme.line),
+            borderRadius: BorderRadius.circular(7),
+            border: Border.all(color: XuanTheme.lineSoft),
           ),
           child: Column(
             children: [
               AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
+                duration: XuanMotion.standard,
+                switchInCurve: XuanMotion.emphasized,
+                switchOutCurve: Curves.easeInCubic,
                 child: state.tossing
                     ? const _SpinningCoins(key: ValueKey('spin'))
                     : const _RestCoins(key: ValueKey('rest')),
@@ -143,9 +353,16 @@ class _CoinCaster extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         _PrimaryButton(
-          label: state.tossing ? '摇卦中…' : '摇 卦',
+          key: const ValueKey('coin-cast-button'),
+          label: state.preparingContext && !state.tossing
+              ? '正在获取方位…'
+              : state.tossing
+              ? '摇卦中…'
+              : '摇卦',
           icon: Icons.casino,
-          onTap: state.tossing ? null : ctrl.castByCoins,
+          onTap: state.tossing || state.preparingContext
+              ? null
+              : ctrl.castByCoins,
         ),
       ],
     );
@@ -238,7 +455,9 @@ class _YaoLine extends StatelessWidget {
             child: Container(
               height: 6,
               decoration: BoxDecoration(
-                  color: color, borderRadius: BorderRadius.circular(3)),
+                color: color,
+                borderRadius: BorderRadius.circular(3),
+              ),
             ),
           ),
           const SizedBox(width: 8),
@@ -246,7 +465,9 @@ class _YaoLine extends StatelessWidget {
             child: Container(
               height: 6,
               decoration: BoxDecoration(
-                  color: color, borderRadius: BorderRadius.circular(3)),
+                color: color,
+                borderRadius: BorderRadius.circular(3),
+              ),
             ),
           ),
         ],
@@ -258,12 +479,12 @@ class _YaoLine extends StatelessWidget {
       transitionBuilder: (child, anim) => FadeTransition(
         opacity: anim,
         child: SizeTransition(
-            sizeFactor: anim, axis: Axis.horizontal, child: child),
+          sizeFactor: anim,
+          axis: Axis.horizontal,
+          child: child,
+        ),
       ),
-      child: KeyedSubtree(
-        key: ValueKey('${value ?? -1}-$active'),
-        child: bar,
-      ),
+      child: KeyedSubtree(key: ValueKey('${value ?? -1}-$active'), child: bar),
     );
     return Row(
       children: [
@@ -273,8 +494,11 @@ class _YaoLine extends StatelessWidget {
           child: moving
               ? const Padding(
                   padding: EdgeInsets.only(left: 6),
-                  child: Icon(Icons.change_circle,
-                      size: 12, color: XuanTheme.cinnabar),
+                  child: Icon(
+                    Icons.change_circle,
+                    size: 12,
+                    color: XuanTheme.cinnabar,
+                  ),
                 )
               : const SizedBox.shrink(),
         ),
@@ -293,13 +517,17 @@ class _CastHint extends StatelessWidget {
     const names = ['初', '二', '三', '四', '五', '上'];
     String text;
     if (state.tossing) {
-      final i = state.castStep.clamp(0, 5);
-      text = '正在摇第 ${names[i]} 爻…';
+      if (state.castStep >= 6 && state.preparingContext) {
+        text = '正在汇入方位与当地资料';
+      } else {
+        final i = state.castStep.clamp(0, 5);
+        text = '第 ${i + 1} / 6 爻 · ${names[i]}爻';
+      }
     } else {
       text = '三枚铜钱，六掷成卦';
     }
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 250),
+      duration: XuanMotion.standard,
       child: Text(
         text,
         key: ValueKey(text),
@@ -366,12 +594,15 @@ class _ManualCaster extends StatelessWidget {
                   child: Text(
                     _yaoName(pos),
                     style: const TextStyle(
-                        color: XuanTheme.textDim, fontSize: 12),
+                      color: XuanTheme.textDim,
+                      fontSize: 12,
+                    ),
                   ),
                 ),
                 Expanded(
                   child: Wrap(
                     spacing: 6,
+                    runSpacing: 6,
                     children: [
                       for (final v in _opts)
                         _YaoChip(
@@ -387,9 +618,10 @@ class _ManualCaster extends StatelessWidget {
           ),
         const SizedBox(height: 8),
         _PrimaryButton(
-          label: '排 盘',
+          key: const ValueKey('manual-cast-button'),
+          label: state.preparingContext ? '正在获取方位…' : '排盘',
           icon: Icons.grid_on,
-          onTap: ctrl.castManual,
+          onTap: state.preparingContext ? null : ctrl.castManual,
         ),
       ],
     );
@@ -402,30 +634,42 @@ class _ManualCaster extends StatelessWidget {
 }
 
 class _YaoChip extends StatelessWidget {
-  const _YaoChip(
-      {required this.label, required this.selected, required this.onTap});
+  const _YaoChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
   final String label;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-        decoration: BoxDecoration(
-          color: selected ? XuanTheme.gold.withValues(alpha: 0.16) : XuanTheme.inkRaised,
-          borderRadius: BorderRadius.circular(5),
-          border: Border.all(
-            color: selected ? XuanTheme.gold : XuanTheme.line,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(5),
+        child: AnimatedContainer(
+          duration: XuanMotion.fast,
+          curve: XuanMotion.ease,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            color: selected
+                ? XuanTheme.gold.withValues(alpha: 0.16)
+                : XuanTheme.inkRaised,
+            borderRadius: BorderRadius.circular(5),
+            border: Border.all(
+              color: selected ? XuanTheme.gold : XuanTheme.line,
+            ),
           ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? XuanTheme.goldSoft : XuanTheme.textDim,
-            fontSize: 11.5,
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? XuanTheme.goldSoft : XuanTheme.textDim,
+              fontSize: 11.5,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+            ),
           ),
         ),
       ),
@@ -442,9 +686,17 @@ class _History extends StatelessWidget {
   Widget build(BuildContext context) {
     if (state.history.isEmpty) {
       return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 12),
-        child: Text('尚无卦例',
-            style: TextStyle(color: XuanTheme.textDim, fontSize: 12)),
+        padding: EdgeInsets.symmetric(vertical: 18),
+        child: Column(
+          children: [
+            Icon(Icons.history_toggle_off, size: 20, color: XuanTheme.textDim),
+            SizedBox(height: 7),
+            Text(
+              '尚无卦例',
+              style: TextStyle(color: XuanTheme.textDim, fontSize: 12),
+            ),
+          ],
+        ),
       );
     }
     final fmt = DateFormat('MM-dd HH:mm');
@@ -453,8 +705,13 @@ class _History extends StatelessWidget {
         for (var i = 0; i < state.history.length; i++)
           _HistoryTile(
             title: state.history[i].primary.name,
-            subtitle:
-                '${fmt.format(state.history[i].date)} · ${state.history[i].question}',
+            subtitle: [
+              fmt.format(state.history[i].date),
+              if (state.history[i].locationContext != null)
+                state.history[i].locationContext!.placeLabel,
+              state.history[i].question,
+            ].join(' · '),
+            selected: state.reading?.id == state.history[i].id,
             onTap: () => ctrl.loadFromHistory(i),
           ),
       ],
@@ -463,46 +720,89 @@ class _History extends StatelessWidget {
 }
 
 class _HistoryTile extends StatelessWidget {
-  const _HistoryTile(
-      {required this.title, required this.subtitle, required this.onTap});
+  const _HistoryTile({
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.onTap,
+  });
   final String title;
   final String subtitle;
+  final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(6),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 6),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: XuanTheme.inkRaised,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: XuanTheme.line),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.auto_awesome, size: 13, color: XuanTheme.gold),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
-                      style: const TextStyle(
-                          color: XuanTheme.textMain, fontSize: 12.5)),
-                  const SizedBox(height: 2),
-                  Text(subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          color: XuanTheme.textDim, fontSize: 10.5)),
-                ],
+          child: AnimatedContainer(
+            duration: XuanMotion.standard,
+            curve: XuanMotion.ease,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+            decoration: BoxDecoration(
+              color: selected
+                  ? XuanTheme.gold.withValues(alpha: 0.1)
+                  : XuanTheme.inkRaised,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: selected
+                    ? XuanTheme.gold.withValues(alpha: 0.55)
+                    : XuanTheme.lineSoft,
               ),
             ),
-          ],
+            child: Row(
+              children: [
+                Container(
+                  width: 3,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: selected ? XuanTheme.gold : XuanTheme.line,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          color: selected
+                              ? XuanTheme.goldSoft
+                              : XuanTheme.textMain,
+                          fontSize: 12.5,
+                          fontWeight: selected
+                              ? FontWeight.w600
+                              : FontWeight.w400,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: XuanTheme.textDim,
+                          fontSize: 10.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  selected ? Icons.check_circle : Icons.chevron_right,
+                  size: 14,
+                  color: selected ? XuanTheme.gold : XuanTheme.textDim,
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -520,8 +820,8 @@ class _MethodToggle extends StatelessWidget {
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         color: XuanTheme.inkRaised,
-        borderRadius: BorderRadius.circular(7),
-        border: Border.all(color: XuanTheme.line),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: XuanTheme.lineSoft),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -531,18 +831,18 @@ class _MethodToggle extends StatelessWidget {
             children: [
               // 滑动的鎏金高亮块。
               AnimatedAlign(
-                duration: const Duration(milliseconds: 240),
-                curve: Curves.easeOutCubic,
-                alignment:
-                    coins ? Alignment.centerLeft : Alignment.centerRight,
+                duration: XuanMotion.standard,
+                curve: XuanMotion.emphasized,
+                alignment: coins ? Alignment.centerLeft : Alignment.centerRight,
                 child: Container(
                   width: segW,
                   height: 30,
                   decoration: BoxDecoration(
                     color: XuanTheme.gold.withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(5),
+                    borderRadius: BorderRadius.circular(4),
                     border: Border.all(
-                        color: XuanTheme.gold.withValues(alpha: 0.5)),
+                      color: XuanTheme.gold.withValues(alpha: 0.5),
+                    ),
                   ),
                 ),
               ),
@@ -562,20 +862,24 @@ class _MethodToggle extends StatelessWidget {
   Widget _seg(String label, CastMethod m) {
     final active = method == m;
     return Expanded(
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => onChanged(m),
-        child: Container(
-          height: 30,
-          alignment: Alignment.center,
-          child: AnimatedDefaultTextStyle(
-            duration: const Duration(milliseconds: 240),
-            style: TextStyle(
-              color: active ? XuanTheme.goldSoft : XuanTheme.textDim,
-              fontSize: 12.5,
-              fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => onChanged(m),
+          borderRadius: BorderRadius.circular(4),
+          child: Container(
+            height: 30,
+            alignment: Alignment.center,
+            child: AnimatedDefaultTextStyle(
+              duration: XuanMotion.standard,
+              curve: XuanMotion.ease,
+              style: TextStyle(
+                color: active ? XuanTheme.goldSoft : XuanTheme.textDim,
+                fontSize: 12.5,
+                fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+              ),
+              child: Text(label),
             ),
-            child: Text(label),
           ),
         ),
       ),
@@ -584,8 +888,12 @@ class _MethodToggle extends StatelessWidget {
 }
 
 class _PrimaryButton extends StatefulWidget {
-  const _PrimaryButton(
-      {required this.label, required this.icon, required this.onTap});
+  const _PrimaryButton({
+    super.key,
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
   final String label;
   final IconData icon;
   final VoidCallback? onTap;
@@ -597,62 +905,71 @@ class _PrimaryButton extends StatefulWidget {
 class _PrimaryButtonState extends State<_PrimaryButton> {
   bool _hover = false;
   bool _pressed = false;
+  bool _focused = false;
 
   @override
   Widget build(BuildContext context) {
     final enabled = widget.onTap != null;
-    return MouseRegion(
-      cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
-      child: GestureDetector(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         onTap: widget.onTap,
-        onTapDown: enabled ? (_) => setState(() => _pressed = true) : null,
-        onTapUp: enabled ? (_) => setState(() => _pressed = false) : null,
-        onTapCancel: enabled ? () => setState(() => _pressed = false) : null,
+        onHover: (value) => setState(() => _hover = value),
+        onHighlightChanged: (value) => setState(() => _pressed = value),
+        onFocusChange: (value) => setState(() => _focused = value),
+        borderRadius: BorderRadius.circular(6),
+        mouseCursor: enabled
+            ? SystemMouseCursors.click
+            : SystemMouseCursors.basic,
         child: AnimatedScale(
           scale: _pressed ? 0.97 : 1.0,
-          duration: const Duration(milliseconds: 110),
-          curve: Curves.easeOut,
+          duration: XuanMotion.fast,
+          curve: XuanMotion.ease,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
+            duration: XuanMotion.standard,
+            curve: XuanMotion.ease,
             padding: const EdgeInsets.symmetric(vertical: 12),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: enabled
-                    ? (_hover
-                        ? [XuanTheme.goldSoft, XuanTheme.gold]
-                        : [XuanTheme.gold, const Color(0xFFB0893A)])
-                    : [XuanTheme.line, XuanTheme.line],
+              color: enabled
+                  ? (_hover ? XuanTheme.goldSoft : XuanTheme.gold)
+                  : XuanTheme.line,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: _focused
+                    ? XuanTheme.textMain
+                    : enabled
+                    ? XuanTheme.goldSoft.withValues(alpha: 0.65)
+                    : XuanTheme.line,
+                width: _focused ? 1.8 : 1,
               ),
-              borderRadius: BorderRadius.circular(7),
               boxShadow: enabled && _hover
                   ? [
                       BoxShadow(
-                        color: XuanTheme.gold.withValues(alpha: 0.35),
-                        blurRadius: 14,
-                        offset: const Offset(0, 4),
+                        color: XuanTheme.gold.withValues(alpha: 0.22),
+                        blurRadius: 18,
+                        offset: const Offset(0, 6),
                       ),
                     ]
                   : null,
             ),
             child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(widget.icon,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  widget.icon,
                   size: 16,
-                  color: enabled ? XuanTheme.ink : XuanTheme.textDim),
-              const SizedBox(width: 8),
-              Text(
-                widget.label,
-                style: TextStyle(
                   color: enabled ? XuanTheme.ink : XuanTheme.textDim,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 3,
                 ),
-              ),
-            ],
+                const SizedBox(width: 8),
+                Text(
+                  widget.label,
+                  style: TextStyle(
+                    color: enabled ? XuanTheme.ink : XuanTheme.textDim,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -669,9 +986,10 @@ class _SpinningCoins extends StatefulWidget {
 
 class _SpinningCoinsState extends State<_SpinningCoins>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _c =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 500))
-        ..repeat();
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 920),
+  )..repeat();
 
   @override
   void dispose() {
@@ -688,16 +1006,21 @@ class _SpinningCoinsState extends State<_SpinningCoins>
           return AnimatedBuilder(
             animation: _c,
             builder: (_, child) {
-              // 平滑的翻转：以余弦驱动 X 轴缩放，模拟铜钱旋转。
+              // 只使用变换模拟翻转和轻微起伏，避免逐帧触发布局变化。
               final phase = (_c.value * 2 * math.pi) + i * 0.9;
-              final scaleX = math.cos(phase).abs().clamp(0.12, 1.0);
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                child: Transform(
-                  alignment: Alignment.center,
-                  transform: Matrix4.identity()
-                    ..scaleByDouble(scaleX, 1.0, 1.0, 1.0),
-                  child: child,
+              final bob = math.sin(phase) * 3.5;
+              return Transform.translate(
+                offset: Offset(0, bob),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: Transform(
+                    alignment: Alignment.center,
+                    transform: Matrix4.identity()
+                      ..setEntry(3, 2, 0.001)
+                      ..rotateY(phase)
+                      ..rotateZ(math.sin(phase) * 0.035),
+                    child: child,
+                  ),
                 ),
               );
             },
@@ -765,7 +1088,6 @@ class _Label extends StatelessWidget {
       style: const TextStyle(
         color: XuanTheme.gold,
         fontSize: 12,
-        letterSpacing: 2,
         fontWeight: FontWeight.w600,
       ),
     );
@@ -773,19 +1095,5 @@ class _Label extends StatelessWidget {
 }
 
 InputDecoration _fieldDecoration(String hint) {
-  return InputDecoration(
-    hintText: hint,
-    hintStyle: const TextStyle(color: XuanTheme.textDim, fontSize: 12.5),
-    filled: true,
-    fillColor: XuanTheme.inkRaised,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(7),
-      borderSide: const BorderSide(color: XuanTheme.line),
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(7),
-      borderSide: const BorderSide(color: XuanTheme.gold),
-    ),
-  );
+  return InputDecoration(hintText: hint);
 }

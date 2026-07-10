@@ -29,16 +29,14 @@ class InstallingScreen extends StatelessWidget {
       return _ErrorView(error: error!, onRetry: onRetry, onQuit: onQuit);
     }
     return Padding(
-      padding: const EdgeInsets.fromLTRB(56, 8, 56, 40),
+      padding: const EdgeInsets.fromLTRB(52, 4, 52, 28),
       child: Row(
         children: [
           Expanded(
             flex: 4,
-            child: Center(
-              child: _ProgressRing(progress: progress),
-            ),
+            child: Center(child: _ProgressRing(progress: progress)),
           ),
-          const SizedBox(width: 20),
+          const SizedBox(width: 28),
           Expanded(
             flex: 5,
             child: Column(
@@ -50,15 +48,17 @@ class InstallingScreen extends StatelessWidget {
                   style: TextStyle(
                     color: XuanTheme.textMain,
                     fontSize: 20,
-                    letterSpacing: 5,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  message,
+                  message.isEmpty ? '正在准备安装文件' : message,
                   style: const TextStyle(
-                      color: XuanTheme.gold, fontSize: 13, letterSpacing: 1),
+                    color: XuanTheme.gold,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(height: 18),
                 _LogPanel(log: log),
@@ -78,36 +78,34 @@ class _ProgressRing extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 200,
-      height: 200,
+      width: 186,
+      height: 186,
       child: Stack(
         alignment: Alignment.center,
         children: [
-          const TaijiMark(size: 118),
+          const TaijiMark(size: 108),
           SizedBox(
-            width: 190,
-            height: 190,
+            width: 178,
+            height: 178,
             child: TweenAnimationBuilder<double>(
               tween: Tween(begin: 0, end: progress),
-              duration: const Duration(milliseconds: 350),
-              curve: Curves.easeOut,
-              builder: (_, value, child) => CustomPaint(
-                painter: _ArcPainter(value),
-              ),
+              duration: XuanMotion.standard,
+              curve: XuanMotion.ease,
+              builder: (_, value, child) =>
+                  CustomPaint(painter: _ArcPainter(value)),
             ),
           ),
           Positioned(
-            bottom: 6,
+            bottom: 4,
             child: TweenAnimationBuilder<double>(
               tween: Tween(begin: 0, end: progress),
-              duration: const Duration(milliseconds: 350),
+              duration: XuanMotion.standard,
               builder: (_, value, child) => Text(
                 '${(value * 100).round()}%',
                 style: const TextStyle(
                   color: XuanTheme.textMain,
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  letterSpacing: 1,
                 ),
               ),
             ),
@@ -157,20 +155,38 @@ class _LogPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final recent = log.length > 6 ? log.sublist(log.length - 6) : log;
+    final recent = log.length > 5 ? log.sublist(log.length - 5) : log;
     return Container(
       height: 160,
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: XuanTheme.ink.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: XuanTheme.line),
+        color: XuanTheme.inkRaised,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: XuanTheme.lineSoft),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
+          if (recent.isEmpty) ...[
+            const Spacer(),
+            const Row(
+              children: [
+                Icon(
+                  Icons.pending_outlined,
+                  size: 14,
+                  color: XuanTheme.textDim,
+                ),
+                SizedBox(width: 8),
+                Text(
+                  '等待安装任务',
+                  style: TextStyle(color: XuanTheme.textDim, fontSize: 12),
+                ),
+              ],
+            ),
+            const Spacer(),
+          ],
           for (var i = 0; i < recent.length; i++)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 3),
@@ -179,7 +195,9 @@ class _LogPanel extends StatelessWidget {
                   Text(
                     i == recent.length - 1 ? '›' : ' ',
                     style: const TextStyle(
-                        color: XuanTheme.gold, fontSize: 12.5),
+                      color: XuanTheme.gold,
+                      fontSize: 12.5,
+                    ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
@@ -217,7 +235,7 @@ class _ErrorView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(56, 20, 56, 40),
+      padding: const EdgeInsets.fromLTRB(56, 24, 56, 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
@@ -231,7 +249,6 @@ class _ErrorView extends StatelessWidget {
                 style: TextStyle(
                   color: XuanTheme.textMain,
                   fontSize: 20,
-                  letterSpacing: 3,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -242,15 +259,21 @@ class _ErrorView extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: XuanTheme.ink.withValues(alpha: 0.6),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                  color: XuanTheme.cinnabar.withValues(alpha: 0.4)),
+              color: XuanTheme.cinnabar.withValues(alpha: 0.08),
+              border: Border(
+                left: BorderSide(
+                  color: XuanTheme.cinnabar.withValues(alpha: 0.8),
+                  width: 3,
+                ),
+              ),
             ),
             child: Text(
               error,
-              style: const TextStyle(color: XuanTheme.textDim, fontSize: 12.5,
-                  height: 1.6),
+              style: const TextStyle(
+                color: XuanTheme.textDim,
+                fontSize: 12.5,
+                height: 1.6,
+              ),
             ),
           ),
           const Spacer(),

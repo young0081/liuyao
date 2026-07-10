@@ -9,6 +9,7 @@ import 'panels/chart_panel.dart';
 import 'platform.dart';
 import 'theme.dart';
 import 'widgets/title_bar.dart';
+import 'widgets/taiji_loader.dart';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
@@ -22,58 +23,88 @@ class HomePage extends ConsumerWidget {
       }
     });
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF0E1116), Color(0xFF10151C), Color(0xFF0B0E12)],
+      backgroundColor: Colors.transparent,
+      body: ClipRRect(
+        borderRadius: isDesktopPlatform
+            ? BorderRadius.circular(10)
+            : BorderRadius.zero,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: XuanTheme.ink,
+            border: isDesktopPlatform
+                ? Border.all(color: XuanTheme.lineSoft)
+                : null,
           ),
-        ),
-        child: Column(
-          children: [
-            const XuanTitleBar(),
-            Expanded(
-              child: isDesktopPlatform
-                  ? const _DesktopBody()
-                  : const _MobileBody(),
-            ),
-          ],
+          child: const Column(
+            children: [
+              XuanTitleBar(),
+              Expanded(child: _ResponsiveBody()),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-/// 桌面：固定三栏并排（起卦 / 排盘 / 断卦）。
-class _DesktopBody extends StatelessWidget {
-  const _DesktopBody();
+/// 宽桌面三栏并排；窄窗口切为页签，避免信息列被压缩。
+class _ResponsiveBody extends StatelessWidget {
+  const _ResponsiveBody();
+
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.all(14),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (isDesktopPlatform && constraints.maxWidth >= 1080) {
+          return const _DesktopBody();
+        }
+        return _TabbedBody(compactDesktop: isDesktopPlatform);
+      },
+    );
+  }
+}
+
+class _DesktopBody extends StatelessWidget {
+  const _DesktopBody();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(width: 316, child: _CastColumn()),
-          SizedBox(width: 14),
-          Expanded(flex: 5, child: _ChartColumn()),
-          SizedBox(width: 14),
-          Expanded(flex: 4, child: _AnalysisColumn()),
+          const SizedBox(
+            width: 316,
+            child: StaggeredReveal(index: 0, child: _CastColumn()),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            flex: 5,
+            child: StaggeredReveal(index: 1, child: _ChartColumn()),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            flex: 4,
+            child: StaggeredReveal(index: 2, child: _AnalysisColumn()),
+          ),
         ],
       ),
     );
   }
 }
 
-/// 移动：三个页签（起卦 / 排盘 / 断卦），每页占满高度。
-class _MobileBody extends StatefulWidget {
-  const _MobileBody();
+/// 移动端使用底部页签；桌面窄窗口使用顶部页签。
+class _TabbedBody extends ConsumerStatefulWidget {
+  const _TabbedBody({required this.compactDesktop});
+
+  final bool compactDesktop;
+
   @override
-  State<_MobileBody> createState() => _MobileBodyState();
+  ConsumerState<_TabbedBody> createState() => _TabbedBodyState();
 }
 
-class _MobileBodyState extends State<_MobileBody>
+class _TabbedBodyState extends ConsumerState<_TabbedBody>
     with SingleTickerProviderStateMixin {
   late final TabController _tab = TabController(length: 3, vsync: this);
 
@@ -85,40 +116,131 @@ class _MobileBodyState extends State<_MobileBody>
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(divinationProvider.select((state) => state.reading?.id), (
+      previous,
+      next,
+    ) {
+      if (next != null && previous != next) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _tab.animateTo(
+              1,
+              duration: XuanMotion.page,
+              curve: XuanMotion.emphasized,
+            );
+          }
+        });
+      }
+    });
+
+    final pages = TabBarView(
+      controller: _tab,
+      physics: const BouncingScrollPhysics(),
+      children: const [
+        Padding(
+          padding: EdgeInsets.fromLTRB(12, 12, 12, 10),
+          child: _CastColumn(),
+        ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(12, 12, 12, 10),
+          child: _ChartColumn(),
+        ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(12, 12, 12, 10),
+          child: _AnalysisColumn(),
+        ),
+      ],
+    );
+
+    if (widget.compactDesktop) {
+      return Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+            child: _FlowTabs(controller: _tab),
+          ),
+          Expanded(child: pages),
+        ],
+      );
+    }
+
     return Column(
       children: [
-        Container(
-          decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: XuanTheme.line)),
-          ),
-          child: TabBar(
-            controller: _tab,
-            indicatorColor: XuanTheme.gold,
-            indicatorWeight: 2,
-            labelColor: XuanTheme.textMain,
-            unselectedLabelColor: XuanTheme.textDim,
-            labelStyle: const TextStyle(
-                fontSize: 14, fontWeight: FontWeight.w600, letterSpacing: 3),
-            unselectedLabelStyle:
-                const TextStyle(fontSize: 14, letterSpacing: 3),
-            tabs: const [
-              Tab(text: '起卦'),
-              Tab(text: '排盘'),
-              Tab(text: '断卦'),
-            ],
-          ),
-        ),
-        Expanded(
-          child: TabBarView(
-            controller: _tab,
-            children: const [
-              Padding(padding: EdgeInsets.all(12), child: _CastColumn()),
-              Padding(padding: EdgeInsets.all(12), child: _ChartColumn()),
-              Padding(padding: EdgeInsets.all(12), child: _AnalysisColumn()),
-            ],
+        Expanded(child: pages),
+        SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+            child: _FlowTabs(controller: _tab),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _FlowTabs extends StatelessWidget {
+  const _FlowTabs({required this.controller});
+
+  final TabController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 52,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: XuanTheme.inkPanel,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: XuanTheme.lineSoft),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x55070806),
+            blurRadius: 18,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: TabBar(
+        controller: controller,
+        dividerColor: Colors.transparent,
+        indicatorSize: TabBarIndicatorSize.tab,
+        indicator: BoxDecoration(
+          color: XuanTheme.gold.withValues(alpha: 0.14),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: XuanTheme.gold.withValues(alpha: 0.42)),
+        ),
+        labelColor: XuanTheme.goldSoft,
+        unselectedLabelColor: XuanTheme.textDim,
+        labelStyle: const TextStyle(
+          fontSize: 12.5,
+          fontWeight: FontWeight.w600,
+        ),
+        unselectedLabelStyle: const TextStyle(fontSize: 12.5),
+        tabs: const [
+          _FlowTab(icon: Icons.toll_outlined, label: '起卦'),
+          _FlowTab(icon: Icons.view_agenda_outlined, label: '排盘'),
+          _FlowTab(icon: Icons.auto_awesome_outlined, label: '断卦'),
+        ],
+      ),
+    );
+  }
+}
+
+class _FlowTab extends StatelessWidget {
+  const _FlowTab({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tab(
+      height: 42,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [Icon(icon, size: 15), const SizedBox(width: 6), Text(label)],
+      ),
     );
   }
 }
@@ -138,8 +260,7 @@ class _ChartColumn extends ConsumerWidget {
   const _ChartColumn();
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final reading =
-        ref.watch(divinationProvider.select((s) => s.reading));
+    final reading = ref.watch(divinationProvider.select((s) => s.reading));
     return ChartPanel(reading: reading);
   }
 }
@@ -149,10 +270,10 @@ class _AnalysisColumn extends ConsumerWidget {
   const _AnalysisColumn();
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final reading =
-        ref.watch(divinationProvider.select((s) => s.reading));
-    final interp =
-        ref.watch(divinationProvider.select((s) => s.interpretation));
+    final reading = ref.watch(divinationProvider.select((s) => s.reading));
+    final interp = ref.watch(
+      divinationProvider.select((s) => s.interpretation),
+    );
     return AnalysisPanel(reading: reading, interpretation: interp);
   }
 }
@@ -162,13 +283,17 @@ class XuanCard extends StatelessWidget {
   const XuanCard({
     super.key,
     required this.child,
-    this.title,
+    required this.title,
+    required this.step,
+    required this.icon,
     this.trailing,
     this.padding = const EdgeInsets.all(16),
   });
 
   final Widget child;
-  final String? title;
+  final String title;
+  final String step;
+  final IconData icon;
   final Widget? trailing;
   final EdgeInsets padding;
 
@@ -178,34 +303,56 @@ class XuanCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: XuanTheme.inkPanel,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: XuanTheme.line),
+        border: Border.all(color: XuanTheme.lineSoft),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x66070806),
+            blurRadius: 22,
+            offset: Offset(0, 10),
+          ),
+        ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (title != null)
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
             Container(
-              padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+              height: 50,
+              padding: const EdgeInsets.fromLTRB(12, 0, 10, 0),
               decoration: const BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(color: XuanTheme.line),
-                ),
+                color: XuanTheme.inkPanel,
+                border: Border(bottom: BorderSide(color: XuanTheme.lineSoft)),
               ),
               child: Row(
                 children: [
                   Container(
-                    width: 3,
-                    height: 14,
-                    color: XuanTheme.gold,
-                    margin: const EdgeInsets.only(right: 8),
+                    width: 26,
+                    height: 26,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: XuanTheme.inkRaised,
+                      borderRadius: BorderRadius.circular(5),
+                      border: Border.all(color: XuanTheme.line),
+                    ),
+                    child: Text(
+                      step,
+                      style: const TextStyle(
+                        color: XuanTheme.goldSoft,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
+                  const SizedBox(width: 9),
+                  Icon(icon, size: 15, color: XuanTheme.gold),
+                  const SizedBox(width: 7),
                   Text(
-                    title!,
+                    title,
                     style: const TextStyle(
                       color: XuanTheme.textMain,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      letterSpacing: 1.5,
                     ),
                   ),
                   const Spacer(),
@@ -213,10 +360,11 @@ class XuanCard extends StatelessWidget {
                 ],
               ),
             ),
-          Expanded(
-            child: Padding(padding: padding, child: child),
-          ),
-        ],
+            Expanded(
+              child: Padding(padding: padding, child: child),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -152,11 +152,13 @@ class _InstallerShellState extends State<InstallerShell> {
       builder: (_) => AlertDialog(
         backgroundColor: XuanTheme.inkPanel,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(8),
           side: const BorderSide(color: XuanTheme.line),
         ),
-        title: const Text('安装正在进行',
-            style: TextStyle(color: XuanTheme.textMain)),
+        title: const Text(
+          '安装正在进行',
+          style: TextStyle(color: XuanTheme.textMain),
+        ),
         content: const Text(
           '安装尚未完成，确定要中止并退出吗？',
           style: TextStyle(color: XuanTheme.textDim),
@@ -164,13 +166,17 @@ class _InstallerShellState extends State<InstallerShell> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('继续安装',
-                style: TextStyle(color: XuanTheme.textDim)),
+            child: const Text(
+              '继续安装',
+              style: TextStyle(color: XuanTheme.textDim),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('中止退出',
-                style: TextStyle(color: XuanTheme.cinnabar)),
+            child: const Text(
+              '中止退出',
+              style: TextStyle(color: XuanTheme.cinnabar),
+            ),
           ),
         ],
       ),
@@ -184,21 +190,20 @@ class _InstallerShellState extends State<InstallerShell> {
       backgroundColor: Colors.transparent,
       body: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: XuanTheme.line, width: 1),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: XuanTheme.lineSoft, width: 1),
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(10),
           child: Stack(
             children: [
               Positioned.fill(
-                child: AmbientBackground(
-                  intensity: _installing ? 1.6 : 1.0,
-                ),
+                child: AmbientBackground(intensity: _installing ? 1.6 : 1.0),
               ),
               Column(
                 children: [
                   InstallerTitleBar(onCloseGuard: _closeGuard),
+                  _InstallerProgressRail(current: _step),
                   Expanded(child: _buildBody()),
                 ],
               ),
@@ -212,48 +217,49 @@ class _InstallerShellState extends State<InstallerShell> {
   Widget _buildBody() {
     final child = switch (_step) {
       InstallStep.welcome => WelcomeScreen(
-          key: const ValueKey('welcome'),
-          detecting: _detecting,
-          action: _action,
-          installed: _installed,
-          version: engine.appVersion,
-          tagline: InstallerConfig.tagline,
-          onNext: () => _goTo(InstallStep.location),
-        ),
+        key: const ValueKey('welcome'),
+        detecting: _detecting,
+        action: _action,
+        installed: _installed,
+        version: engine.appVersion,
+        tagline: InstallerConfig.tagline,
+        onNext: () => _goTo(InstallStep.location),
+      ),
       InstallStep.location => LocationScreen(
-          key: const ValueKey('location'),
-          targetDir: _targetDir,
-          desktopShortcut: _desktopShortcut,
-          action: _action,
-          onChangeDir: (d) => setState(() => _targetDir = d),
-          onToggleDesktop: (v) => setState(() => _desktopShortcut = v),
-          onBack: () => _goTo(InstallStep.welcome),
-          onInstall: _startInstall,
-        ),
+        key: const ValueKey('location'),
+        targetDir: _targetDir,
+        desktopShortcut: _desktopShortcut,
+        action: _action,
+        onChangeDir: (d) => setState(() => _targetDir = d),
+        onToggleDesktop: (v) => setState(() => _desktopShortcut = v),
+        onBack: () => _goTo(InstallStep.welcome),
+        onInstall: _startInstall,
+      ),
       InstallStep.installing => InstallingScreen(
-          key: const ValueKey('installing'),
-          progress: _progress,
-          message: _progressMsg,
-          log: _log,
-          error: _error,
-          onRetry: _startInstall,
-          onQuit: () => exit(1),
-        ),
+        key: const ValueKey('installing'),
+        progress: _progress,
+        message: _progressMsg,
+        log: _log,
+        error: _error,
+        onRetry: _startInstall,
+        onQuit: () => exit(1),
+      ),
       InstallStep.done => DoneScreen(
-          key: const ValueKey('done'),
-          action: _action,
-          version: engine.appVersion,
-          onLaunchAndClose: () async {
-            await engine.launchApp(_targetDir);
-            await windowManager.close();
-          },
-          onClose: () => windowManager.close(),
-        ),
+        key: const ValueKey('done'),
+        action: _action,
+        version: engine.appVersion,
+        installDir: _targetDir,
+        onLaunchAndClose: () async {
+          await engine.launchApp(_targetDir);
+          await windowManager.close();
+        },
+        onClose: () => windowManager.close(),
+      ),
     };
 
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 420),
-      switchInCurve: Curves.easeOutCubic,
+      duration: XuanMotion.page,
+      switchInCurve: XuanMotion.emphasized,
       switchOutCurve: Curves.easeInCubic,
       transitionBuilder: (c, anim) {
         final offset = Tween<Offset>(
@@ -266,6 +272,116 @@ class _InstallerShellState extends State<InstallerShell> {
         );
       },
       child: child,
+    );
+  }
+}
+
+class _InstallerProgressRail extends StatelessWidget {
+  const _InstallerProgressRail({required this.current});
+
+  final InstallStep current;
+
+  static const labels = ['检测', '位置', '安装', '完成'];
+
+  @override
+  Widget build(BuildContext context) {
+    final currentIndex = current.index;
+    return Container(
+      height: 54,
+      padding: const EdgeInsets.symmetric(horizontal: 48),
+      decoration: const BoxDecoration(
+        color: XuanTheme.inkPanel,
+        border: Border(bottom: BorderSide(color: XuanTheme.lineSoft)),
+      ),
+      child: Row(
+        children: [
+          for (var i = 0; i < labels.length; i++) ...[
+            _ProgressNode(
+              index: i,
+              label: labels[i],
+              active: i == currentIndex,
+              completed: i < currentIndex,
+            ),
+            if (i < labels.length - 1)
+              Expanded(
+                child: AnimatedContainer(
+                  duration: XuanMotion.standard,
+                  height: 1,
+                  margin: const EdgeInsets.symmetric(horizontal: 12),
+                  color: i < currentIndex
+                      ? XuanTheme.gold.withValues(alpha: 0.65)
+                      : XuanTheme.line,
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ProgressNode extends StatelessWidget {
+  const _ProgressNode({
+    required this.index,
+    required this.label,
+    required this.active,
+    required this.completed,
+  });
+
+  final int index;
+  final String label;
+  final bool active;
+  final bool completed;
+
+  @override
+  Widget build(BuildContext context) {
+    final highlighted = active || completed;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnimatedContainer(
+          duration: XuanMotion.standard,
+          curve: XuanMotion.ease,
+          width: 24,
+          height: 24,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: active
+                ? XuanTheme.gold.withValues(alpha: 0.16)
+                : completed
+                ? XuanTheme.gold
+                : XuanTheme.inkRaised,
+            borderRadius: BorderRadius.circular(5),
+            border: Border.all(
+              color: highlighted ? XuanTheme.gold : XuanTheme.line,
+            ),
+          ),
+          child: completed
+              ? const Icon(Icons.check, size: 14, color: XuanTheme.ink)
+              : Text(
+                  '${index + 1}',
+                  style: TextStyle(
+                    color: active ? XuanTheme.goldSoft : XuanTheme.textDim,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+        ),
+        const SizedBox(width: 7),
+        AnimatedDefaultTextStyle(
+          duration: XuanMotion.standard,
+          style: TextStyle(
+            color: active
+                ? XuanTheme.textMain
+                : completed
+                ? XuanTheme.goldSoft
+                : XuanTheme.textDim,
+            fontSize: 11.5,
+            fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+          ),
+          child: Text(label),
+        ),
+      ],
     );
   }
 }

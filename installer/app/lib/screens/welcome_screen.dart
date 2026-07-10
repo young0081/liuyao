@@ -27,7 +27,7 @@ class WelcomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final style = ActionStyle.of(action);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(48, 8, 48, 40),
+      padding: const EdgeInsets.fromLTRB(48, 0, 48, 28),
       child: Row(
         children: [
           // 左：视觉符号。
@@ -37,24 +37,22 @@ class WelcomeScreen extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const TaijiMark(size: 150),
-                  const SizedBox(height: 26),
+                  const TaijiMark(size: 126),
+                  const SizedBox(height: 24),
                   const Text(
                     '玄机 · 六爻卦象',
                     style: TextStyle(
                       color: XuanTheme.textMain,
-                      fontSize: 24,
+                      fontSize: 22,
                       fontWeight: FontWeight.w600,
-                      letterSpacing: 6,
                     ),
                   ),
                   const SizedBox(height: 10),
                   Text(
                     tagline,
                     style: const TextStyle(
-                      color: XuanTheme.textDim,
-                      fontSize: 12.5,
-                      letterSpacing: 3,
+                      color: XuanTheme.textMuted,
+                      fontSize: 12,
                     ),
                   ),
                 ],
@@ -70,31 +68,31 @@ class WelcomeScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _ActionBadge(style: style, detecting: detecting),
-                const SizedBox(height: 22),
+                const SizedBox(height: 20),
                 _VersionPanel(
                   detecting: detecting,
                   installed: installed,
                   targetVersion: version,
                   action: action,
                 ),
-                const SizedBox(height: 30),
+                const SizedBox(height: 24),
                 Text(
                   detecting
                       ? '正在检测本机是否已安装…'
                       : '本向导将引导你完成安装。安装过程无需管理员权限，'
-                          '程序将安装到你的用户目录。',
+                            '程序将安装到你的用户目录。',
                   style: const TextStyle(
-                    color: XuanTheme.textDim,
+                    color: XuanTheme.textMuted,
                     fontSize: 12.5,
                     height: 1.7,
                   ),
                 ),
-                const SizedBox(height: 26),
+                const SizedBox(height: 22),
                 GoldButton(
                   label: '下一步',
-                  icon: Icons.arrow_forward,
+                  icon: Icons.arrow_forward_rounded,
                   color: style.color,
-                  onTap: detecting ? () {} : onNext,
+                  onTap: detecting ? null : onNext,
                 ),
               ],
             ),
@@ -113,25 +111,33 @@ class _ActionBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      duration: XuanMotion.standard,
+      curve: XuanMotion.ease,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: style.color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: style.color.withValues(alpha: 0.5)),
+        borderRadius: BorderRadius.circular(6),
+        border: Border(
+          left: BorderSide(
+            color: style.color.withValues(alpha: 0.85),
+            width: 3,
+          ),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(detecting ? Icons.radar : style.icon,
-              size: 18, color: style.color),
+          Icon(
+            detecting ? Icons.radar : style.icon,
+            size: 18,
+            color: style.color,
+          ),
           const SizedBox(width: 10),
           Text(
             detecting ? '检测中' : style.label,
             style: TextStyle(
               color: style.color,
               fontSize: 14,
-              letterSpacing: 3,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -158,16 +164,15 @@ class _VersionPanel extends StatelessWidget {
     if (detecting) {
       return const SizedBox(
         height: 58,
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: SizedBox(
-            width: 22,
-            height: 22,
-            child: CircularProgressIndicator(
-              strokeWidth: 2.2,
-              color: XuanTheme.gold,
+        child: Row(
+          children: [
+            TaijiMark(size: 26),
+            SizedBox(width: 10),
+            Text(
+              '正在读取本机安装信息',
+              style: TextStyle(color: XuanTheme.textMuted, fontSize: 12.5),
             ),
-          ),
+          ],
         ),
       );
     }
@@ -190,8 +195,10 @@ class _VersionPanel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style: const TextStyle(color: XuanTheme.textDim, fontSize: 11)),
+        Text(
+          label,
+          style: const TextStyle(color: XuanTheme.textDim, fontSize: 11),
+        ),
         const SizedBox(height: 4),
         Text(
           value,
@@ -199,7 +206,6 @@ class _VersionPanel extends StatelessWidget {
             color: color,
             fontSize: 20,
             fontWeight: FontWeight.w600,
-            letterSpacing: 1,
           ),
         ),
       ],

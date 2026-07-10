@@ -26,18 +26,30 @@ class Interpreter {
     final ying = h.yaos[h.yingPos];
 
     final points = <String>[];
-    points.add('本卦「${h.name}」属${h.palaceName}宫${h.positionLabel}，'
-        '宫五行为${h.palaceElement.zh}。');
+    points.add(
+      '本卦「${h.name}」属${h.palaceName}宫${h.positionLabel}，'
+      '宫五行为${h.palaceElement.zh}。',
+    );
     if (r.changed != null) {
-      points.add('动而生变，变卦为「${r.changed!.name}」，'
-          '事有转折，宜看动爻去向。');
+      points.add(
+        '动而生变，变卦为「${r.changed!.name}」，'
+        '事有转折，宜看动爻去向。',
+      );
     } else {
       points.add('六爻安静，无动爻，事态相对稳定，以世应与用神旺衰断之。');
+    }
+    final location = r.locationContext;
+    if (location != null) {
+      points.add(
+        '起卦地理参照为${location.placeLabel}（${location.coordinateLabel}）。'
+        '位置与公开环境资料只用于辅助取象，不改变本卦、变卦和动爻。',
+      );
     }
 
     // 世应关系。
     final rel = _relation(shi.element, ying.element);
-    final shiYingNote = '世爻在${_ordinal(h.shiPos)}（${shi.liuQin.zh}·${shi.ganZhi}），'
+    final shiYingNote =
+        '世爻在${_ordinal(h.shiPos)}（${shi.liuQin.zh}·${shi.ganZhi}），'
         '应爻在${_ordinal(h.yingPos)}（${ying.liuQin.zh}·${ying.ganZhi}）。$rel';
 
     // 空亡。

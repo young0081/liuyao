@@ -14,16 +14,32 @@ class ActionStyle {
     switch (a) {
       case InstallAction.fresh:
         return const ActionStyle(
-            '全新安装', '开始安装', XuanTheme.gold, Icons.auto_awesome);
+          '全新安装',
+          '开始安装',
+          XuanTheme.gold,
+          Icons.auto_awesome,
+        );
       case InstallAction.update:
         return const ActionStyle(
-            '发现新版本', '更新到此版本', XuanTheme.jade, Icons.upgrade);
+          '发现新版本',
+          '更新到此版本',
+          XuanTheme.jade,
+          Icons.upgrade,
+        );
       case InstallAction.rollback:
         return const ActionStyle(
-            '版本回退', '回退到此版本', XuanTheme.cinnabar, Icons.history);
+          '版本回退',
+          '回退到此版本',
+          XuanTheme.cinnabar,
+          Icons.history,
+        );
       case InstallAction.reinstall:
         return const ActionStyle(
-            '重新安装', '修复安装', XuanTheme.goldSoft, Icons.build_circle_outlined);
+          '重新安装',
+          '修复安装',
+          XuanTheme.goldSoft,
+          Icons.build_circle_outlined,
+        );
     }
   }
 }
@@ -39,7 +55,7 @@ class GoldButton extends StatefulWidget {
     this.filled = true,
   });
   final String label;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final IconData? icon;
   final Color color;
   final bool filled;
@@ -50,57 +66,80 @@ class GoldButton extends StatefulWidget {
 
 class _GoldButtonState extends State<GoldButton> {
   bool _hover = false;
+  bool _pressed = false;
+  bool _focused = false;
 
   @override
   Widget build(BuildContext context) {
-    final fg = widget.filled ? XuanTheme.ink : widget.color;
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
-      child: GestureDetector(
+    final enabled = widget.onTap != null;
+    final fg = enabled
+        ? (widget.filled ? XuanTheme.ink : widget.color)
+        : XuanTheme.textDim;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          curve: Curves.easeOut,
-          padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 13),
-          decoration: BoxDecoration(
-            color: widget.filled
-                ? (_hover ? widget.color : widget.color.withValues(alpha: 0.88))
-                : (_hover
-                    ? widget.color.withValues(alpha: 0.12)
-                    : Colors.transparent),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: widget.color.withValues(alpha: widget.filled ? 0 : 0.6),
-            ),
-            boxShadow: widget.filled && _hover
-                ? [
-                    BoxShadow(
-                      color: widget.color.withValues(alpha: 0.4),
-                      blurRadius: 20,
-                      spreadRadius: 1,
-                    )
-                  ]
-                : null,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (widget.icon != null) ...[
-                Icon(widget.icon, size: 18, color: fg),
-                const SizedBox(width: 8),
-              ],
-              Text(
-                widget.label,
-                style: TextStyle(
-                  color: fg,
-                  fontSize: 14,
-                  letterSpacing: 2,
-                  fontWeight: FontWeight.w600,
-                ),
+        onHover: (value) => setState(() => _hover = value),
+        onHighlightChanged: (value) => setState(() => _pressed = value),
+        onFocusChange: (value) => setState(() => _focused = value),
+        borderRadius: BorderRadius.circular(6),
+        mouseCursor: enabled
+            ? SystemMouseCursors.click
+            : SystemMouseCursors.basic,
+        child: AnimatedScale(
+          scale: _pressed ? 0.97 : 1,
+          duration: XuanMotion.fast,
+          curve: XuanMotion.ease,
+          child: AnimatedContainer(
+            duration: XuanMotion.standard,
+            curve: XuanMotion.ease,
+            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+            decoration: BoxDecoration(
+              color: !enabled
+                  ? XuanTheme.lineSoft
+                  : widget.filled
+                  ? (_hover
+                        ? widget.color
+                        : widget.color.withValues(alpha: 0.9))
+                  : (_hover
+                        ? widget.color.withValues(alpha: 0.12)
+                        : Colors.transparent),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: _focused
+                    ? XuanTheme.textMain
+                    : enabled
+                    ? widget.color.withValues(alpha: widget.filled ? 0.5 : 0.6)
+                    : XuanTheme.line,
+                width: _focused ? 1.8 : 1,
               ),
-            ],
+              boxShadow: enabled && widget.filled && _hover
+                  ? [
+                      BoxShadow(
+                        color: widget.color.withValues(alpha: 0.22),
+                        blurRadius: 18,
+                        offset: const Offset(0, 6),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (widget.icon != null) ...[
+                  Icon(widget.icon, size: 17, color: fg),
+                  const SizedBox(width: 8),
+                ],
+                Text(
+                  widget.label,
+                  style: TextStyle(
+                    color: fg,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

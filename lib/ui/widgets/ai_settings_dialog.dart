@@ -19,8 +19,11 @@ const List<_Preset> _presets = [
   _Preset('DeepSeek', 'https://api.deepseek.com/v1', 'deepseek-chat'),
   _Preset('Moonshot', 'https://api.moonshot.cn/v1', 'moonshot-v1-8k'),
   _Preset('智谱 GLM', 'https://open.bigmodel.cn/api/paas/v4', 'glm-4-flash'),
-  _Preset('通义千问', 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-      'qwen-plus'),
+  _Preset(
+    '通义千问',
+    'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    'qwen-plus',
+  ),
   _Preset('本地 Ollama', 'http://localhost:11434/v1', 'qwen2.5'),
 ];
 
@@ -49,7 +52,8 @@ class _AiSettingsDialogState extends ConsumerState<_AiSettingsDialog> {
     super.initState();
     final settings = ref.read(aiProvider).settings;
     _editingId =
-        settings.active?.id ?? (settings.providers.isNotEmpty ? settings.providers.first.id : null);
+        settings.active?.id ??
+        (settings.providers.isNotEmpty ? settings.providers.first.id : null);
     if (settings.providers.isEmpty) _creatingNew = true;
   }
 
@@ -76,14 +80,21 @@ class _AiSettingsDialogState extends ConsumerState<_AiSettingsDialog> {
     // 窄屏（移动端）改为近全屏、上下堆叠布局。
     final narrow = media.size.width < 620;
     final maxW = narrow ? media.size.width - 24 : 780.0;
-    final maxH = narrow ? media.size.height - media.padding.vertical - 48 : 620.0;
+    final maxH = narrow
+        ? media.size.height -
+              media.padding.vertical -
+              media.viewInsets.vertical -
+              32
+        : 620.0;
     return Dialog(
       insetPadding: EdgeInsets.symmetric(
-          horizontal: narrow ? 12 : 40, vertical: narrow ? 24 : 40),
+        horizontal: narrow ? 12 : 40,
+        vertical: narrow ? 24 : 40,
+      ),
       backgroundColor: XuanTheme.inkPanel,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: XuanTheme.line),
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: XuanTheme.lineSoft),
       ),
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: maxW, maxHeight: maxH),
@@ -146,12 +157,14 @@ class _AiSettingsDialogState extends ConsumerState<_AiSettingsDialog> {
         children: [
           const Icon(Icons.hub_outlined, size: 18, color: XuanTheme.gold),
           const SizedBox(width: 10),
-          const Text('AI 供应商管理',
-              style: TextStyle(
-                  color: XuanTheme.textMain,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.5)),
+          const Text(
+            'AI 供应商管理',
+            style: TextStyle(
+              color: XuanTheme.textMain,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           const Spacer(),
           IconButton(
             splashRadius: 18,
@@ -176,9 +189,13 @@ class _AiSettingsDialogState extends ConsumerState<_AiSettingsDialog> {
               height: settings.providers.isEmpty ? 40 : 72,
               child: settings.providers.isEmpty
                   ? const Center(
-                      child: Text('尚无供应商，点击下方新增',
-                          style: TextStyle(
-                              color: XuanTheme.textDim, fontSize: 12)),
+                      child: Text(
+                        '尚无供应商，点击下方新增',
+                        style: TextStyle(
+                          color: XuanTheme.textDim,
+                          fontSize: 12,
+                        ),
+                      ),
                     )
                   : ListView.separated(
                       scrollDirection: Axis.horizontal,
@@ -208,11 +225,7 @@ class _AiSettingsDialogState extends ConsumerState<_AiSettingsDialog> {
                     ),
             ),
             const SizedBox(height: 6),
-            _GhostButton(
-              label: '新增供应商',
-              icon: Icons.add,
-              onTap: _newProvider,
-            ),
+            _GhostButton(label: '新增供应商', icon: Icons.add, onTap: _newProvider),
           ],
         ),
       );
@@ -225,10 +238,15 @@ class _AiSettingsDialogState extends ConsumerState<_AiSettingsDialog> {
               ? const Center(
                   child: Padding(
                     padding: EdgeInsets.all(20),
-                    child: Text('尚无供应商\n点击下方新增',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            color: XuanTheme.textDim, fontSize: 12, height: 1.7)),
+                    child: Text(
+                      '尚无供应商\n点击下方新增',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: XuanTheme.textDim,
+                        fontSize: 12,
+                        height: 1.7,
+                      ),
+                    ),
                   ),
                 )
               : ListView.builder(
@@ -288,56 +306,78 @@ class _ProviderTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: selected
-              ? XuanTheme.gold.withValues(alpha: 0.12)
-              : XuanTheme.inkRaised,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: selected ? XuanTheme.gold : XuanTheme.line,
-          ),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(name,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                color: XuanTheme.textMain,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600)),
-                      ),
-                      if (!configured) ...[
-                        const SizedBox(width: 6),
-                        const Icon(Icons.error_outline,
-                            size: 12, color: XuanTheme.cinnabar),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(model,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          color: XuanTheme.textDim, fontSize: 10.5)),
-                ],
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(6),
+          child: AnimatedContainer(
+            duration: XuanMotion.standard,
+            curve: XuanMotion.ease,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+            decoration: BoxDecoration(
+              color: selected
+                  ? XuanTheme.gold.withValues(alpha: 0.1)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(6),
+              border: Border(
+                left: BorderSide(
+                  color: selected ? XuanTheme.gold : Colors.transparent,
+                  width: 3,
+                ),
               ),
             ),
-            const SizedBox(width: 6),
-            _UseBadge(isActive: isActive, onTap: onUse),
-          ],
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              name,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: selected
+                                    ? XuanTheme.goldSoft
+                                    : XuanTheme.textMain,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          if (!configured) ...[
+                            const SizedBox(width: 6),
+                            const Icon(
+                              Icons.error_outline,
+                              size: 12,
+                              color: XuanTheme.cinnabar,
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        model,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: XuanTheme.textDim,
+                          fontSize: 10.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 4),
+                _UseBadge(isActive: isActive, onTap: onUse),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -350,28 +390,18 @@ class _UseBadge extends StatelessWidget {
   final VoidCallback onTap;
   @override
   Widget build(BuildContext context) {
-    if (isActive) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: XuanTheme.jade.withValues(alpha: 0.18),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: XuanTheme.jade.withValues(alpha: 0.6)),
+    return Tooltip(
+      message: isActive ? '当前供应商' : '设为当前供应商',
+      child: IconButton(
+        onPressed: isActive ? null : onTap,
+        visualDensity: VisualDensity.compact,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints.tightFor(width: 30, height: 30),
+        icon: Icon(
+          isActive ? Icons.check_circle : Icons.radio_button_unchecked,
+          size: 17,
+          color: isActive ? XuanTheme.jade : XuanTheme.textDim,
         ),
-        child: const Text('使用中',
-            style: TextStyle(color: XuanTheme.jade, fontSize: 10)),
-      );
-    }
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: XuanTheme.line),
-        ),
-        child: const Text('设为当前',
-            style: TextStyle(color: XuanTheme.textDim, fontSize: 10)),
       ),
     );
   }
@@ -379,7 +409,11 @@ class _UseBadge extends StatelessWidget {
 
 /// 右侧编辑表单。
 class _ProviderForm extends ConsumerStatefulWidget {
-  const _ProviderForm({super.key, required this.initial, required this.onSaved});
+  const _ProviderForm({
+    super.key,
+    required this.initial,
+    required this.onSaved,
+  });
   final AiProviderConfig? initial;
   final ValueChanged<AiProviderConfig> onSaved;
 
@@ -410,7 +444,8 @@ class _ProviderFormState extends ConsumerState<_ProviderForm> {
     _apiKey = TextEditingController(text: cfg?.apiKey ?? '');
     _model = TextEditingController(text: cfg?.model ?? '');
     _prompt = TextEditingController(
-        text: cfg?.systemPrompt ?? AiProviderConfig.defaultSystemPrompt);
+      text: cfg?.systemPrompt ?? AiProviderConfig.defaultSystemPrompt,
+    );
     _temperature = cfg?.temperature ?? 0.7;
     _stream = cfg?.stream ?? true;
   }
@@ -426,8 +461,8 @@ class _ProviderFormState extends ConsumerState<_ProviderForm> {
   }
 
   AiProviderConfig _current() {
-    final id = widget.initial?.id ??
-        DateTime.now().microsecondsSinceEpoch.toString();
+    final id =
+        widget.initial?.id ?? DateTime.now().microsecondsSinceEpoch.toString();
     return AiProviderConfig(
       id: id,
       name: _name.text.trim().isEmpty ? '未命名供应商' : _name.text.trim(),
@@ -475,6 +510,38 @@ class _ProviderFormState extends ConsumerState<_ProviderForm> {
   Future<void> _delete() async {
     final id = widget.initial?.id;
     if (id == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: XuanTheme.inkPanel,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: const BorderSide(color: XuanTheme.line),
+        ),
+        title: const Text(
+          '删除供应商',
+          style: TextStyle(color: XuanTheme.textMain, fontSize: 16),
+        ),
+        content: Text(
+          '确定删除“${widget.initial!.name}”及其本机配置？',
+          style: const TextStyle(color: XuanTheme.textMuted, fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text(
+              '删除',
+              style: TextStyle(color: XuanTheme.cinnabar),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
     await ref.read(aiProvider.notifier).deleteProvider(id);
   }
 
@@ -517,18 +584,20 @@ class _ProviderFormState extends ConsumerState<_ProviderForm> {
                   suffix: IconButton(
                     splashRadius: 18,
                     icon: Icon(
-                        _obscureKey
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
-                        size: 18,
-                        color: XuanTheme.textDim),
-                    onPressed: () =>
-                        setState(() => _obscureKey = !_obscureKey),
+                      _obscureKey
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                      size: 18,
+                      color: XuanTheme.textDim,
+                    ),
+                    onPressed: () => setState(() => _obscureKey = !_obscureKey),
                   ),
                 ),
                 const SizedBox(height: 6),
-                const Text('密钥仅保存在本机，不会上传或明文回显。',
-                    style: TextStyle(color: XuanTheme.textDim, fontSize: 11)),
+                const Text(
+                  '密钥仅保存在本机，不会上传或明文回显。',
+                  style: TextStyle(color: XuanTheme.textDim, fontSize: 11),
+                ),
                 const SizedBox(height: 14),
                 const _FieldLabel('模型名称'),
                 const SizedBox(height: 6),
@@ -559,10 +628,7 @@ class _ProviderFormState extends ConsumerState<_ProviderForm> {
                 const SizedBox(height: 14),
                 const _FieldLabel('系统提示词'),
                 const SizedBox(height: 6),
-                _field(
-                    controller: _prompt,
-                    hint: '设定解卦者的口吻与准则…',
-                    maxLines: 4),
+                _field(controller: _prompt, hint: '设定解卦者的口吻与准则…', maxLines: 4),
                 if (_testResult != null) ...[
                   const SizedBox(height: 14),
                   _testBanner(),
@@ -588,12 +654,17 @@ class _ProviderFormState extends ConsumerState<_ProviderForm> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(_testOk ? Icons.check_circle_outline : Icons.error_outline,
-              size: 16, color: color),
+          Icon(
+            _testOk ? Icons.check_circle_outline : Icons.error_outline,
+            size: 16,
+            color: color,
+          ),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(_testResult!,
-                style: TextStyle(color: color, fontSize: 12, height: 1.5)),
+            child: Text(
+              _testResult!,
+              style: TextStyle(color: color, fontSize: 12, height: 1.5),
+            ),
           ),
         ],
       ),
@@ -605,7 +676,7 @@ class _ProviderFormState extends ConsumerState<_ProviderForm> {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
       decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: XuanTheme.line)),
+        border: Border(top: BorderSide(color: XuanTheme.lineSoft)),
       ),
       child: Row(
         children: [
@@ -647,21 +718,8 @@ class _ProviderFormState extends ConsumerState<_ProviderForm> {
       style: const TextStyle(color: XuanTheme.textMain, fontSize: 13),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: const TextStyle(color: XuanTheme.textDim, fontSize: 12.5),
-        filled: true,
-        fillColor: XuanTheme.inkRaised,
         suffixIcon: suffix,
         isDense: true,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(7),
-          borderSide: const BorderSide(color: XuanTheme.line),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(7),
-          borderSide: const BorderSide(color: XuanTheme.gold),
-        ),
       ),
     );
   }
@@ -678,58 +736,61 @@ class _StreamToggle extends StatelessWidget {
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         color: XuanTheme.inkRaised,
-        borderRadius: BorderRadius.circular(7),
-        border: Border.all(color: XuanTheme.line),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: XuanTheme.lineSoft),
       ),
-      child: LayoutBuilder(builder: (context, c) {
-        final segW = (c.maxWidth - 6) / 2;
-        return Stack(
-          children: [
-            AnimatedAlign(
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOutCubic,
-              alignment:
-                  stream ? Alignment.centerLeft : Alignment.centerRight,
-              child: Container(
-                width: segW,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: XuanTheme.gold.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(5),
-                  border:
-                      Border.all(color: XuanTheme.gold.withValues(alpha: 0.5)),
+      child: LayoutBuilder(
+        builder: (context, c) {
+          final segW = (c.maxWidth - 6) / 2;
+          return Stack(
+            children: [
+              AnimatedAlign(
+                duration: XuanMotion.standard,
+                curve: XuanMotion.emphasized,
+                alignment: stream
+                    ? Alignment.centerLeft
+                    : Alignment.centerRight,
+                child: Container(
+                  width: segW,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: XuanTheme.gold.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: XuanTheme.gold.withValues(alpha: 0.5),
+                    ),
+                  ),
                 ),
               ),
-            ),
-            Row(
-              children: [
-                _seg('流式（逐字）', true),
-                _seg('非流式（一次性）', false),
-              ],
-            ),
-          ],
-        );
-      }),
+              Row(children: [_seg('流式（逐字）', true), _seg('非流式（一次性）', false)]),
+            ],
+          );
+        },
+      ),
     );
   }
 
   Widget _seg(String label, bool v) {
     final active = stream == v;
     return Expanded(
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => onChanged(v),
-        child: Container(
-          height: 30,
-          alignment: Alignment.center,
-          child: AnimatedDefaultTextStyle(
-            duration: const Duration(milliseconds: 220),
-            style: TextStyle(
-              color: active ? XuanTheme.goldSoft : XuanTheme.textDim,
-              fontSize: 12,
-              fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => onChanged(v),
+          borderRadius: BorderRadius.circular(4),
+          child: Container(
+            height: 30,
+            alignment: Alignment.center,
+            child: AnimatedDefaultTextStyle(
+              duration: XuanMotion.standard,
+              curve: XuanMotion.ease,
+              style: TextStyle(
+                color: active ? XuanTheme.goldSoft : XuanTheme.textDim,
+                fontSize: 12,
+                fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+              ),
+              child: Text(label),
             ),
-            child: Text(label),
           ),
         ),
       ),
@@ -742,12 +803,14 @@ class _FieldLabel extends StatelessWidget {
   final String text;
   @override
   Widget build(BuildContext context) {
-    return Text(text,
-        style: const TextStyle(
-            color: XuanTheme.gold,
-            fontSize: 12,
-            letterSpacing: 1.5,
-            fontWeight: FontWeight.w600));
+    return Text(
+      text,
+      style: const TextStyle(
+        color: XuanTheme.gold,
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+      ),
+    );
   }
 }
 
@@ -757,25 +820,35 @@ class _PresetChip extends StatelessWidget {
   final VoidCallback onTap;
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        decoration: BoxDecoration(
-          color: XuanTheme.inkRaised,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: XuanTheme.line),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(5),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            color: XuanTheme.inkRaised,
+            borderRadius: BorderRadius.circular(5),
+            border: Border.all(color: XuanTheme.line),
+          ),
+          child: Text(
+            label,
+            style: const TextStyle(color: XuanTheme.textMain, fontSize: 12),
+          ),
         ),
-        child: Text(label,
-            style: const TextStyle(color: XuanTheme.textMain, fontSize: 12)),
       ),
     );
   }
 }
 
 class _GhostButton extends StatelessWidget {
-  const _GhostButton(
-      {required this.label, this.icon, required this.onTap, this.danger = false});
+  const _GhostButton({
+    required this.label,
+    this.icon,
+    required this.onTap,
+    this.danger = false,
+  });
   final String label;
   final IconData? icon;
   final VoidCallback? onTap;
@@ -797,9 +870,10 @@ class _GhostButton extends StatelessWidget {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(7),
           side: BorderSide(
-              color: danger
-                  ? XuanTheme.cinnabar.withValues(alpha: 0.5)
-                  : XuanTheme.line),
+            color: danger
+                ? XuanTheme.cinnabar.withValues(alpha: 0.5)
+                : XuanTheme.line,
+          ),
         ),
       ),
     );
@@ -820,9 +894,10 @@ class _SolidButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
       ),
-      child: Text(label,
-          style: const TextStyle(
-              fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: 2)),
+      child: Text(
+        label,
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+      ),
     );
   }
 }

@@ -66,5 +66,7 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>用于在用户启用位置参照后，将所在地理方位和公开本地资讯加入当次卦象推演。</string>
 </dict>
 </plist>

@@ -46,8 +46,9 @@ class AiState {
       phase: phase ?? this.phase,
       result: clearResult ? null : (result ?? this.result),
       error: clearError ? null : (error ?? this.error),
-      activeReadingId:
-          clearReadingId ? null : (activeReadingId ?? this.activeReadingId),
+      activeReadingId: clearReadingId
+          ? null
+          : (activeReadingId ?? this.activeReadingId),
     );
   }
 }
@@ -74,20 +75,25 @@ class AiController extends StateNotifier<AiState> {
       if (raw != null && raw.isNotEmpty) {
         final json = jsonDecode(raw) as Map<String, dynamic>;
         state = state.copyWith(
-            settings: AiSettings.fromJson(json), loaded: true);
+          settings: AiSettings.fromJson(json),
+          loaded: true,
+        );
         return;
       }
       // 迁移旧版单供应商配置。
       final legacy = prefs.getString(_legacyKey);
       if (legacy != null && legacy.isNotEmpty) {
         final cfg = AiProviderConfig.fromJson(
-            jsonDecode(legacy) as Map<String, dynamic>);
+          jsonDecode(legacy) as Map<String, dynamic>,
+        );
         final migrated = cfg.copyWith(
           id: DateTime.now().microsecondsSinceEpoch.toString(),
           name: '默认供应商',
         );
-        final settings =
-            AiSettings(providers: [migrated], activeId: migrated.id);
+        final settings = AiSettings(
+          providers: [migrated],
+          activeId: migrated.id,
+        );
         state = state.copyWith(settings: settings, loaded: true);
         await _persist(settings);
         return;
@@ -115,21 +121,27 @@ class AiController extends StateNotifier<AiState> {
     } else {
       list.add(cfg);
     }
-    final activeId =
-        state.settings.activeId.isEmpty ? cfg.id : state.settings.activeId;
-    final settings = state.settings.copyWith(providers: list, activeId: activeId);
+    final activeId = state.settings.activeId.isEmpty
+        ? cfg.id
+        : state.settings.activeId;
+    final settings = state.settings.copyWith(
+      providers: list,
+      activeId: activeId,
+    );
     state = state.copyWith(settings: settings);
     await _persist(settings);
   }
 
   Future<void> deleteProvider(String id) async {
-    final list =
-        state.settings.providers.where((p) => p.id != id).toList();
+    final list = state.settings.providers.where((p) => p.id != id).toList();
     var activeId = state.settings.activeId;
     if (activeId == id) {
       activeId = list.isNotEmpty ? list.first.id : '';
     }
-    final settings = state.settings.copyWith(providers: list, activeId: activeId);
+    final settings = state.settings.copyWith(
+      providers: list,
+      activeId: activeId,
+    );
     state = state.copyWith(settings: settings);
     await _persist(settings);
   }
@@ -230,7 +242,10 @@ class AiController extends StateNotifier<AiState> {
   }
 
   Future<void> _analyzeOnce(
-      AiProviderConfig provider, Reading reading, Interpretation local) async {
+    AiProviderConfig provider,
+    Reading reading,
+    Interpretation local,
+  ) async {
     try {
       final text = await _client.analyze(
         config: provider,
@@ -247,47 +262,50 @@ class AiController extends StateNotifier<AiState> {
   }
 
   Future<void> _analyzeStreaming(
-      AiProviderConfig provider, Reading reading, Interpretation local) async {
+    AiProviderConfig provider,
+    Reading reading,
+    Interpretation local,
+  ) async {
     final completer = Completer<void>();
     final buffer = StringBuffer();
     var started = false;
     _sub = _client
         .analyzeStream(config: provider, reading: reading, local: local)
         .listen(
-      (piece) {
-        buffer.write(piece);
-        if (!started) {
-          started = true;
-          state = state.copyWith(phase: AiPhase.streaming);
-        }
-        state = state.copyWith(result: buffer.toString());
-      },
-      onError: (Object e) {
-        final msg = e is AiException ? e.message : '解卦失败：$e';
-        // 若已经产出部分内容，则保留并追加错误提示。
-        if (buffer.isNotEmpty) {
-          state = state.copyWith(
-            phase: AiPhase.done,
-            result: buffer.toString(),
-          );
-          _resultCache[reading.id] = buffer.toString();
-        } else {
-          state = state.copyWith(phase: AiPhase.error, error: msg);
-        }
-        if (!completer.isCompleted) completer.complete();
-      },
-      onDone: () {
-        final text = buffer.toString().trim();
-        if (text.isEmpty) {
-          state = state.copyWith(phase: AiPhase.error, error: '供应商返回内容为空。');
-        } else {
-          _resultCache[reading.id] = text;
-          state = state.copyWith(phase: AiPhase.done, result: text);
-        }
-        if (!completer.isCompleted) completer.complete();
-      },
-      cancelOnError: true,
-    );
+          (piece) {
+            buffer.write(piece);
+            if (!started) {
+              started = true;
+              state = state.copyWith(phase: AiPhase.streaming);
+            }
+            state = state.copyWith(result: buffer.toString());
+          },
+          onError: (Object e) {
+            final msg = e is AiException ? e.message : '解卦失败：$e';
+            // 若已经产出部分内容，则保留并追加错误提示。
+            if (buffer.isNotEmpty) {
+              state = state.copyWith(
+                phase: AiPhase.done,
+                result: buffer.toString(),
+              );
+              _resultCache[reading.id] = buffer.toString();
+            } else {
+              state = state.copyWith(phase: AiPhase.error, error: msg);
+            }
+            if (!completer.isCompleted) completer.complete();
+          },
+          onDone: () {
+            final text = buffer.toString().trim();
+            if (text.isEmpty) {
+              state = state.copyWith(phase: AiPhase.error, error: '供应商返回内容为空。');
+            } else {
+              _resultCache[reading.id] = text;
+              state = state.copyWith(phase: AiPhase.done, result: text);
+            }
+            if (!completer.isCompleted) completer.complete();
+          },
+          cancelOnError: true,
+        );
     await completer.future;
   }
 

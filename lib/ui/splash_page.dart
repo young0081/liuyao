@@ -13,51 +13,44 @@ class SplashGate extends StatefulWidget {
   State<SplashGate> createState() => _SplashGateState();
 }
 
-class _SplashGateState extends State<SplashGate>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 700),
-  );
-
-  bool _showSplash = true;
+class _SplashGateState extends State<SplashGate> {
+  bool _ready = false;
 
   @override
   void initState() {
     super.initState();
-    Future<void>.delayed(const Duration(milliseconds: 1900), () async {
+    Future<void>.delayed(const Duration(milliseconds: 1350), () {
       if (!mounted) return;
-      await _c.forward();
-      if (!mounted) return;
-      setState(() => _showSplash = false);
+      setState(() => _ready = true);
     });
   }
 
   @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        widget.child,
-        if (_showSplash)
-          FadeTransition(
-            opacity: Tween<double>(begin: 1, end: 0).animate(
-              CurvedAnimation(parent: _c, curve: Curves.easeInOut),
-            ),
-            child: const _SplashScreen(),
-          ),
-      ],
+    return AnimatedSwitcher(
+      duration: XuanMotion.page,
+      switchInCurve: XuanMotion.emphasized,
+      switchOutCurve: Curves.easeInCubic,
+      layoutBuilder: (currentChild, previousChildren) => Stack(
+        fit: StackFit.expand,
+        children: [...previousChildren, ?currentChild],
+      ),
+      transitionBuilder: (child, animation) => FadeTransition(
+        opacity: animation,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.992, end: 1).animate(animation),
+          child: child,
+        ),
+      ),
+      child: _ready
+          ? KeyedSubtree(key: const ValueKey('home'), child: widget.child)
+          : const _SplashScreen(key: ValueKey('splash')),
     );
   }
 }
 
 class _SplashScreen extends StatefulWidget {
-  const _SplashScreen();
+  const _SplashScreen({super.key});
 
   @override
   State<_SplashScreen> createState() => _SplashScreenState();
@@ -80,14 +73,9 @@ class _SplashScreenState extends State<_SplashScreen>
   Widget build(BuildContext context) {
     final fade = CurvedAnimation(parent: _intro, curve: Curves.easeOutCubic);
     return Scaffold(
+      backgroundColor: Colors.transparent,
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment(0, -0.15),
-            radius: 1.1,
-            colors: [Color(0xFF161C24), Color(0xFF0C0F14)],
-          ),
-        ),
+        color: XuanTheme.inkDeep,
         child: Column(
           children: [
             const XuanTitleBar(showSettings: false),
@@ -104,29 +92,60 @@ class _SplashScreenState extends State<_SplashScreen>
                     child: const Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        RepaintBoundary(child: TaijiLoader(size: 110)),
-                        SizedBox(height: 30),
+                        RepaintBoundary(child: TaijiLoader(size: 96)),
+                        SizedBox(height: 26),
                         Text(
                           '玄机 · 六爻卦象',
                           style: TextStyle(
                             color: XuanTheme.textMain,
-                            fontSize: 22,
+                            fontSize: 21,
                             fontWeight: FontWeight.w600,
-                            letterSpacing: 8,
                           ),
                         ),
-                        SizedBox(height: 12),
+                        SizedBox(height: 9),
                         Text(
                           '凝神静气 · 起卦以观其象',
                           style: TextStyle(
-                            color: XuanTheme.textDim,
-                            fontSize: 12.5,
-                            letterSpacing: 3,
+                            color: XuanTheme.textMuted,
+                            fontSize: 12,
                           ),
                         ),
+                        SizedBox(height: 28),
+                        _LoadTrack(),
                       ],
                     ),
                   ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LoadTrack extends StatelessWidget {
+  const _LoadTrack();
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 1250),
+      curve: XuanMotion.ease,
+      builder: (context, value, _) => SizedBox(
+        width: 144,
+        height: 2,
+        child: Stack(
+          children: [
+            const Positioned.fill(child: ColoredBox(color: XuanTheme.lineSoft)),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FractionallySizedBox(
+                widthFactor: value,
+                child: const SizedBox.expand(
+                  child: ColoredBox(color: XuanTheme.gold),
                 ),
               ),
             ),

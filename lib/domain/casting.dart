@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'ganzhi_calendar.dart';
 import 'hexagram_engine.dart';
+import 'location_context.dart';
 import 'models.dart';
 
 /// 单爻投掷结果。三枚铜钱：字(阴)记2、背(阳)记3，合计：
@@ -38,6 +39,7 @@ class Reading {
     required this.primary,
     required this.changed,
     required this.method,
+    this.locationContext,
   });
 
   final String question;
@@ -47,10 +49,13 @@ class Reading {
   final Hexagram primary; // 本卦（含六神、伏神、世应）
   final Hexagram? changed; // 变卦（无动爻则 null）
   final String method;
+  final LocationContext? locationContext;
 
   bool get hasMoving => tosses.any((t) => t.moving);
-  List<int> get movingPositions =>
-      [for (var i = 0; i < 6; i++) if (tosses[i].moving) i];
+  List<int> get movingPositions => [
+    for (var i = 0; i < 6; i++)
+      if (tosses[i].moving) i,
+  ];
 
   /// 六爻的掷值(6/7/8/9)，用于持久化后重建。
   List<int> get tossValues => tosses.map((t) => t.value).toList();
@@ -76,9 +81,7 @@ class Caster {
 
   /// 由手动指定的爻(value 6/7/8/9)构造。
   List<CoinToss> fromValues(List<int> values) {
-    return values
-        .map((v) => CoinToss(v, _coinsForValue(v)))
-        .toList();
+    return values.map((v) => CoinToss(v, _coinsForValue(v))).toList();
   }
 
   List<bool> _coinsForValue(int v) {
@@ -99,6 +102,7 @@ class Caster {
     required String question,
     required String method,
     DateTime? at,
+    LocationContext? locationContext,
   }) {
     final date = at ?? DateTime.now();
     final gz = GanZhiDate(date);
@@ -108,7 +112,7 @@ class Caster {
     // 标记动爻。
     final markedYaos = [
       for (var i = 0; i < 6; i++)
-        primary.yaos[i].copyWith(moving: tosses[i].moving)
+        primary.yaos[i].copyWith(moving: tosses[i].moving),
     ];
     final withShen = _engine.assignLiuShen(markedYaos, gz.dayGan);
     primary = Hexagram(
@@ -129,7 +133,7 @@ class Caster {
         for (var i = 0; i < 6; i++)
           tosses[i].moving
               ? (tosses[i].yang ? 0 : 1) // 老阳->阴, 老阴->阳
-              : (tosses[i].yang ? 1 : 0)
+              : (tosses[i].yang ? 1 : 0),
       ];
       var ch = _engine.build(changedBits);
       final chShen = _engine.assignLiuShen(ch.yaos, gz.dayGan);
@@ -154,6 +158,7 @@ class Caster {
       primary: primary,
       changed: changed,
       method: method,
+      locationContext: locationContext,
     );
   }
 }

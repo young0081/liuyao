@@ -5,6 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../domain/casting.dart';
 import '../domain/interpreter.dart';
+import '../domain/location_context.dart';
+import 'location_state.dart';
 
 enum CastMethod { coins, manual }
 
@@ -13,6 +15,7 @@ class DivinationState {
     this.question = '',
     this.method = CastMethod.coins,
     this.tossing = false,
+    this.preparingContext = false,
     this.castStep = 0,
     this.castReveal = const [null, null, null, null, null, null],
     this.reading,
@@ -24,6 +27,7 @@ class DivinationState {
   final String question;
   final CastMethod method;
   final bool tossing;
+  final bool preparingContext;
   final int castStep; // 摇卦动画进度 0..6
   final List<int?> castReveal; // 逐爻揭示的掷值(6/7/8/9)，null 表示未揭示
   final Reading? reading;
@@ -35,6 +39,7 @@ class DivinationState {
     String? question,
     CastMethod? method,
     bool? tossing,
+    bool? preparingContext,
     int? castStep,
     List<int?>? castReveal,
     Reading? reading,
@@ -47,11 +52,13 @@ class DivinationState {
       question: question ?? this.question,
       method: method ?? this.method,
       tossing: tossing ?? this.tossing,
+      preparingContext: preparingContext ?? this.preparingContext,
       castStep: castStep ?? this.castStep,
       castReveal: castReveal ?? this.castReveal,
       reading: clearReading ? null : (reading ?? this.reading),
-      interpretation:
-          clearReading ? null : (interpretation ?? this.interpretation),
+      interpretation: clearReading
+          ? null
+          : (interpretation ?? this.interpretation),
       manualValues: manualValues ?? this.manualValues,
       history: history ?? this.history,
     );
@@ -59,12 +66,17 @@ class DivinationState {
 }
 
 class DivinationController extends StateNotifier<DivinationState> {
-  DivinationController() : super(const DivinationState()) {
+  DivinationController([
+    this._prepareLocationContext,
+    this._isLocationContextEnabled,
+  ]) : super(const DivinationState()) {
     _loadHistory();
   }
 
   final Caster _caster = Caster();
   final Interpreter _interpreter = Interpreter();
+  final Future<LocationContext?> Function()? _prepareLocationContext;
+  final bool Function()? _isLocationContextEnabled;
 
   static const _historyKey = 'divination_history_v1';
 
@@ -80,10 +92,15 @@ class DivinationController extends StateNotifier<DivinationState> {
 
   /// 摇卦：逐爻演示六次投掷的完整过程。
   Future<void> castByCoins() async {
-    if (state.tossing) return;
+    if (state.tossing || state.preparingContext) return;
     final tosses = _caster.tossThreeCoins();
+    final usesLocation = _usesLocationContext;
+    final contextFuture = usesLocation
+        ? _loadLocationContext()
+        : Future<LocationContext?>.value();
     state = state.copyWith(
       tossing: true,
+      preparingContext: usesLocation,
       clearReading: true,
       castStep: 0,
       castReveal: const [null, null, null, null, null, null],
@@ -98,26 +115,46 @@ class DivinationController extends StateNotifier<DivinationState> {
       await Future<void>.delayed(const Duration(milliseconds: 260));
     }
     await Future<void>.delayed(const Duration(milliseconds: 350));
-    _finish(tosses, '三钱摇卦');
+    final locationContext = await contextFuture;
+    _finish(tosses, '三钱摇卦', locationContext: locationContext);
   }
 
-  void castManual() {
+  Future<void> castManual() async {
+    if (state.tossing || state.preparingContext) return;
+    final usesLocation = _usesLocationContext;
+    state = state.copyWith(preparingContext: usesLocation);
+    final locationContext = usesLocation ? await _loadLocationContext() : null;
     final tosses = _caster.fromValues(state.manualValues);
-    _finish(tosses, '手动排爻');
+    _finish(tosses, '手动排爻', locationContext: locationContext);
   }
 
-  void _finish(List tosses, String method) {
+  Future<LocationContext?> _loadLocationContext() async {
+    final loader = _prepareLocationContext;
+    if (loader == null) return null;
+    try {
+      return await loader();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool get _usesLocationContext =>
+      _isLocationContextEnabled?.call() ?? _prepareLocationContext != null;
+
+  void _finish(List tosses, String method, {LocationContext? locationContext}) {
     final reading = _caster.castFromTosses(
       tosses: tosses.cast(),
       question: state.question.trim().isEmpty
           ? '（未填写所问之事）'
           : state.question.trim(),
       method: method,
+      locationContext: locationContext,
     );
     final interp = _interpreter.interpret(reading);
     final history = [reading, ...state.history].take(50).toList();
     state = state.copyWith(
       tossing: false,
+      preparingContext: false,
       castStep: 6,
       reading: reading,
       interpretation: interp,
@@ -156,12 +193,15 @@ class DivinationController extends StateNotifier<DivinationState> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final list = history
-          .map((r) => {
-                'q': r.question,
-                'm': r.method,
-                't': r.date.microsecondsSinceEpoch,
-                'v': r.tossValues,
-              })
+          .map(
+            (r) => {
+              'q': r.question,
+              'm': r.method,
+              't': r.date.microsecondsSinceEpoch,
+              'v': r.tossValues,
+              'c': r.locationContext?.toJson(),
+            },
+          )
           .toList();
       await prefs.setString(_historyKey, jsonEncode(list));
     } catch (_) {
@@ -185,6 +225,13 @@ class DivinationController extends StateNotifier<DivinationState> {
           question: m['q'] as String? ?? '',
           method: m['m'] as String? ?? '三钱摇卦',
           at: at,
+          locationContext: m['c'] is Map
+              ? LocationContext.fromJson(
+                  (m['c'] as Map).map(
+                    (key, value) => MapEntry(key.toString(), value),
+                  ),
+                )
+              : null,
         );
         restored.add(reading);
       }
@@ -197,5 +244,8 @@ class DivinationController extends StateNotifier<DivinationState> {
 
 final divinationProvider =
     StateNotifierProvider<DivinationController, DivinationState>(
-  (ref) => DivinationController(),
-);
+      (ref) => DivinationController(
+        () => ref.read(locationProvider.notifier).prepareForReading(),
+        () => ref.read(locationProvider).enabled,
+      ),
+    );
